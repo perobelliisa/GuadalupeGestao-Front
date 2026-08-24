@@ -1,0 +1,266 @@
+.sidebar {
+    width: 255px;
+    min-width: 255px;
+    min-height: 100vh;
+
+    position: relative;
+
+    top: 0;
+    left: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    background: var(--cor-superficie);
+
+    border-right: 1px solid var(--cor-borda);
+
+    z-index: 100;
+}
+
+
+/* =========================================
+   LOGO
+========================================= */
+
+.logoArea {
+    width: 100%;
+    height: 75px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 0 22px;
+}
+
+
+.logoIcone {
+    width: 28px;
+    height: auto;
+
+    display: block;
+
+    object-fit: contain;
+}
+
+
+/* =========================================
+   AMBIENTE
+========================================= */
+
+.ambienteArea {
+    padding: 0 13px 20px;
+}
+
+
+.ambienteTitulo {
+    display: block;
+
+    margin: 0 8px 9px;
+
+    color: var(--cor-texto-suave);
+
+    font-size: 9px;
+    font-weight: 500;
+}
+
+
+.ambienteCard {
+    width: 100%;
+    min-height: 65px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    padding: 0 14px;
+
+    border-radius: 13px;
+
+    background: var(--cor-fundo-suave);
+
+    color: var(--cor-texto-principal);
+
+    font-size: 12px;
+}
+
+
+.ambienteIcone {
+    width: 28px;
+    height: 28px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 8px;
+
+    background: var(--cor-fundo-azul);
+
+    color: var(--cor-primaria);
+
+    font-size: 15px;
+}
+
+
+/* =========================================
+   MENU
+========================================= */
+
+.menu {
+    width: 100%;
+
+    padding-bottom: 35px;
+}
+
+
+.menuSecao {
+    width: 100%;
+
+    margin-top: 20px;
+
+    padding: 0 11px;
+}
+
+
+.menuTitulo {
+    display: block;
+
+    margin: 0 10px 8px;
+
+    color: var(--cor-texto-suave);
+
+    font-size: 9px;
+    font-weight: 500;
+}
+
+
+.menuItens {
+    display: flex;
+    flex-direction: column;
+
+    gap: 2px;
+}
+
+
+/* =========================================
+   ITEM
+========================================= */
+
+.menuItem {
+    width: 100%;
+    min-height: 36px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 0 12px;
+
+    border: none;
+    border-radius: 7px;
+
+    outline: none;
+
+    background: transparent;
+
+    color: var(--cor-texto-principal);
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 400;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+            background 0.18s ease,
+            color 0.18s ease;
+}
+
+
+.menuItem:hover {
+    background: var(--cor-fundo-suave);
+}
+
+
+.menuIcone {
+    width: 18px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 14px;
+}
+
+
+.menuIconeImagem {
+    width: 16px;
+    height: 16px;
+
+    display: block;
+
+    object-fit: contain;
+}
+
+
+.logoTexto {
+    width: 91px;
+    height: auto;
+
+    display: block;
+
+    object-fit: contain;
+}
+
+
+/* ITEM SELECIONADO */
+
+.menuItemAtivo {
+    background: var(--cor-primaria);
+
+    color: var(--cor-superficie);
+}
+
+
+.menuItemAtivo:hover {
+    background: var(--cor-primaria);
+}
+
+
+.menuItemAtivo .menuIconeImagem {
+    filter: brightness(0) invert(1);
+}
+
+
+/* =========================================
+   RESPONSIVO
+========================================= */
+
+@media (max-width: 900px) {
+
+    .sidebar {
+        width: 220px;
+        min-width: 220px;
+    }
+
+}
+
+
+@media (max-width: 700px) {
+
+    .sidebar {
+        display: none;
+    }
+
+}

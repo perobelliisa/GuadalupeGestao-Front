@@ -1,0 +1,72 @@
+.header {
+    width: 100%;
+    height: 64px;
+
+    background: var(--cor-superficie);
+
+    border-bottom: 1px solid var(--cor-borda);
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    padding: 0 20px;
+}
+
+/* DIREITA */
+
+.header-right {
+    display: flex;
+    align-items: center;
+
+    gap: 17px;
+
+    color: var(--cor-texto-principal);
+}
+
+.header-right > svg {
+    stroke-width: 1.7;
+}
+
+/* USUÁRIO */
+
+.usuario {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    color: var(--cor-texto-principal);
+
+    font-size: 10px;
+}
+
+.avatar {
+    width: 27px;
+    height: 27px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: var(--cor-acento);
+
+    color: var(--cor-superficie);
+
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.usuario svg {
+    color: var(--cor-texto-secundario);
+}
+
+/* RESPONSIVO */
+
+@media (max-width: 600px) {
+    .usuario > span {
+        display: none;
+    }
+}

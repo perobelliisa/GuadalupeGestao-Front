@@ -1,0 +1,272 @@
+.cadastro-usuario-content {
+    width: 100%;
+    max-width: 1280px;
+
+    margin: 0 auto;
+    padding: 42px 34px 50px;
+}
+
+/* CABEÇALHO DA PÁGINA */
+
+.cadastro-usuario-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 24px;
+
+    margin-bottom: 32px;
+}
+
+.cadastro-usuario-header h1 {
+    margin: 0;
+
+    color: var(--cor-texto-principal);
+    font-size: 25px;
+    line-height: 1.2;
+}
+
+.cadastro-usuario-header p {
+    margin: 7px 0 0;
+
+    color: var(--cor-texto-secundario);
+    font-size: 12px;
+}
+
+.btn-criar-usuario {
+    min-height: 40px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    padding: 0 17px;
+
+    border: 0;
+    border-radius: 11px;
+
+    background: var(--cor-primaria);
+    color: var(--cor-superficie);
+
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow: 0 5px 12px var(--sombra-botao);
+    transition: 0.2s ease;
+}
+
+.btn-criar-usuario:hover {
+    background: var(--cor-primaria-hover);
+    transform: translateY(-1px);
+}
+
+.btn-criar-usuario:disabled {
+    cursor: wait;
+    opacity: 0.75;
+    transform: none;
+}
+
+/* FORMULÁRIO */
+
+.cadastro-usuario-form {
+    display: flex;
+    flex-direction: column;
+
+    gap: 22px;
+}
+
+.cadastro-panel {
+    padding: 27px 25px 25px;
+
+    border: 1px solid var(--cor-borda);
+    border-radius: 15px;
+
+    background: var(--cor-superficie);
+    box-shadow: 0 2px 7px var(--sombra-suave);
+}
+
+.cadastro-panel h2 {
+    margin: 0 0 22px;
+
+    color: var(--cor-texto-principal);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.cadastro-field {
+    min-width: 0;
+
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+}
+
+.cadastro-field + .cadastro-field-full,
+.cadastro-field-full + .cadastro-field-full,
+.cadastro-field-full + .cadastro-fields-row {
+    margin-top: 20px;
+}
+
+.cadastro-fields-row + .cadastro-fields-row {
+    margin-top: 20px;
+}
+
+.cadastro-field label {
+    margin-bottom: 8px;
+
+    color: var(--cor-texto-principal);
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.cadastro-field label span {
+    color: var(--cor-perigo);
+}
+
+.cadastro-field small {
+    margin-top: 6px;
+
+    color: var(--cor-texto-suave);
+    font-size: 9px;
+    line-height: 1.4;
+}
+
+.cadastro-field input:not([type="checkbox"]),
+.cadastro-field select {
+    width: 100%;
+    height: 40px;
+
+    padding: 0 13px;
+
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    outline: 0;
+
+    background: var(--cor-superficie);
+    color: var(--cor-texto-principal);
+
+    font-size: 11px;
+
+    transition: 0.2s ease;
+}
+
+.cadastro-field input:not([type="checkbox"]):focus,
+.cadastro-field select:focus {
+    border-color: var(--cor-primaria);
+    box-shadow: 0 0 0 3px var(--sombra-foco);
+}
+
+.cadastro-fields-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 20px;
+}
+
+.cadastro-field-project {
+    max-width: 50%;
+}
+
+.cadastro-projetos-aviso,
+.cadastro-projetos-erro {
+    margin: 0;
+
+    color: var(--cor-texto-secundario);
+    font-size: 11px;
+}
+
+.cadastro-projetos-erro {
+    color: var(--cor-erro-texto);
+}
+
+.cadastro-projetos-opcoes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 12px;
+}
+
+.cadastro-projeto-check {
+    min-height: 40px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+    padding: 10px 13px;
+
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+
+    color: var(--cor-texto-principal);
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+.cadastro-projeto-check:has(input:checked) {
+    border-color: var(--cor-primaria);
+    background: var(--cor-fundo-azul);
+}
+
+.cadastro-projeto-check input {
+    width: 15px;
+    height: 15px;
+
+    accent-color: var(--cor-primaria);
+}
+
+.cadastro-mensagem {
+    margin: 0;
+
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.cadastro-mensagem-erro {
+    color: var(--cor-erro-texto);
+}
+
+.cadastro-mensagem-sucesso {
+    color: var(--cor-sucesso);
+}
+
+/* RESPONSIVO */
+
+@media (max-width: 800px) {
+    .cadastro-usuario-content {
+        padding: 30px;
+    }
+
+    .cadastro-fields-row {
+        grid-template-columns: 1fr;
+    }
+
+    .cadastro-field-project {
+        max-width: 100%;
+    }
+
+    .cadastro-projetos-opcoes {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .cadastro-usuario-content {
+        padding: 24px 20px 36px;
+    }
+
+    .cadastro-usuario-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .btn-criar-usuario {
+        width: 100%;
+    }
+}

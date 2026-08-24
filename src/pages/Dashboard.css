@@ -1,0 +1,143 @@
+:root {
+    /* Estrutura */
+    --cor-fundo-pagina: #f5f7fb;
+    --cor-fundo-login: #fdfbf7;
+    --cor-superficie: #ffffff;
+    --cor-fundo-suave: #f4f6fb;
+    --cor-borda: #e4e8ef;
+
+    /* Hierarquia de texto */
+    --cor-texto-principal: #14213d;
+    --cor-texto-secundario: #697588;
+    --cor-texto-suave: #8a96a8;
+
+    /* Marca e ações */
+    --cor-primaria: #3470ff;
+    --cor-primaria-hover: #245ef2;
+    --cor-acento: #13b8ad;
+    --cor-sucesso: #14945e;
+    --cor-alerta: #efb92e;
+    --cor-perigo: #ff5b4d;
+    --cor-roxo: #9b74ff;
+
+    /* Fundos e bordas de estados */
+    --cor-fundo-azul: #e9f1ff;
+    --cor-fundo-verde: #e5f8f5;
+    --cor-fundo-amarelo: #fff8e5;
+    --cor-fundo-vermelho: #fff0ee;
+    --cor-borda-azul: #d4e2ff;
+    --cor-borda-verde: #cceedd;
+    --cor-borda-amarela: #f3e2aa;
+
+    /* Campos */
+    --cor-fundo-campo: #e9effa;
+    --cor-fundo-campo-hover: #e4ebf7;
+
+    /* Sombras */
+    --sombra-suave: rgba(22, 43, 70, 0.05);
+    --sombra-login: rgba(29, 47, 67, 0.07);
+    --sombra-foco: rgba(49, 107, 255, 0.1);
+    --sombra-botao: rgba(49, 107, 255, 0.18);
+    --sombra-botao-hover: rgba(49, 107, 255, 0.24);
+    --cor-overlay: rgba(20, 33, 61, 0.45);
+    --sombra-modal: rgba(20, 33, 61, 0.2);
+
+    /* Marcadores dos projetos */
+    --cor-marcador-azul: #65a8ff;
+
+    /* Cores decorativas exclusivas do login */
+    --cor-decorativa-verde: #9ee1c5;
+    --cor-decorativa-amarela: #ffd575;
+    --cor-decorativa-azul: #7f9fff;
+    --cor-decorativa-rosa: #f3a3aa;
+    --cor-decorativa-azul-clara: #b1dcfb;
+    --cor-erro-texto: #c62828;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+}
+
+body {
+    background: var(--cor-fundo-pagina);
+    color: var(--cor-texto-principal);
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input {
+    font-family: inherit;
+}
+
+.app {
+    min-height: 100vh;
+
+    display: flex;
+
+    background: var(--cor-fundo-pagina);
+}
+
+.main {
+    min-width: 0;
+    flex: 1;
+}
+
+.content {
+    width: 100%;
+    max-width: 1280px;
+
+    margin: 0 auto;
+    padding: 34px 34px 50px;
+}
+
+.page-header {
+    margin-bottom: 28px;
+}
+
+.page-header h1 {
+    margin: 0;
+
+    color: var(--cor-texto-principal);
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.page-header p {
+    margin: 8px 0 0;
+
+    color: var(--cor-texto-secundario);
+    font-size: 12px;
+}
+
+.chart-column {
+    width: calc((100% - 14px) * 0.67);
+}
+
+@media (max-width: 1000px) {
+    .content {
+        padding: 30px;
+    }
+
+    .chart-column {
+        width: 100%;
+    }
+}
+
+@media (max-width: 700px) {
+    .content {
+        padding: 24px 20px 36px;
+    }
+
+    .page-header h1 {
+        font-size: 22px;
+    }
+}

@@ -1,0 +1,927 @@
+/* ==========================================================
+   RESET GLOBAL
+========================================================== */
+
+:global(*) {
+    box-sizing: border-box;
+}
+
+:global(html) {
+    margin: 0;
+    padding: 0;
+
+    width: 100%;
+
+    scroll-behavior: smooth;
+}
+
+:global(body) {
+    margin: 0;
+    padding: 0;
+
+    width: 100%;
+    min-width: 320px;
+    min-height: 100vh;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    background: var(--cor-superficie);
+
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+:global(#root) {
+    width: 100%;
+    min-height: 100vh;
+
+    margin: 0;
+    padding: 0;
+}
+
+
+/* ==========================================================
+   PÁGINA
+========================================================== */
+
+.loginPage {
+    width: 100%;
+    min-height: 100vh;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    background: var(--cor-superficie);
+
+    overflow-x: hidden;
+}
+
+
+/* ==========================================================
+   LADO ESQUERDO
+========================================================== */
+
+.logoProjetos {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logoIcone {
+    width: 48px;
+}
+
+.logoTexto {
+    width: 125px;
+}
+
+.loginLeft {
+    width: 100%;
+    min-width: 0;
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 50px 70px;
+
+    background: var(--cor-superficie);
+}
+
+
+.loginContent {
+    width: 100%;
+    max-width: 420px;
+}
+
+
+/* ==========================================================
+   LOGO GUADALUPE GESTÕES
+========================================================== */
+
+.logoGestoesArea {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+
+    margin-bottom: 45px;
+}
+
+
+.logoGestoes {
+    width: 145px;
+    max-width: 100%;
+    height: auto;
+
+    display: block;
+
+    object-fit: contain;
+}
+
+
+/* ==========================================================
+   TEXTO LOGIN
+========================================================== */
+
+.loginHeader {
+    width: 100%;
+
+    margin-bottom: 32px;
+}
+
+
+.loginHeader h1 {
+    margin: 0 0 12px;
+
+    color: var(--cor-texto-principal);
+
+    font-size: 28px;
+    font-weight: 700;
+
+    line-height: 1.15;
+
+    letter-spacing: -0.4px;
+}
+
+
+.loginHeader p {
+    width: 100%;
+    max-width: 390px;
+
+    margin: 0;
+
+    color: var(--cor-texto-secundario);
+
+    font-size: 13px;
+
+    line-height: 1.5;
+}
+
+
+/* ==========================================================
+   FORMULÁRIO
+========================================================== */
+
+.loginForm {
+    width: 100%;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+.formGroup {
+    width: 100%;
+
+    display: flex;
+    flex-direction: column;
+
+    margin-bottom: 18px;
+}
+
+
+.formGroup label {
+    margin-bottom: 7px;
+
+    color: var(--cor-texto-secundario);
+
+    font-size: 11px;
+    font-weight: 500;
+}
+
+
+.formGroup label span {
+    color: var(--cor-perigo);
+}
+
+
+.formGroup input {
+    width: 100%;
+    height: 45px;
+
+    margin: 0;
+    padding: 0 15px;
+
+    border: 1px solid transparent;
+    border-radius: 12px;
+
+    outline: none;
+
+    background: var(--cor-fundo-campo);
+
+    color: var(--cor-texto-principal);
+
+    font-family: inherit;
+    font-size: 14px;
+
+    transition: 0.2s ease;
+}
+
+
+.formGroup input:hover {
+    background: var(--cor-fundo-campo-hover);
+}
+
+
+.formGroup input:focus {
+    background: var(--cor-superficie);
+
+    border-color: var(--cor-primaria);
+
+    box-shadow: 0 0 0 3px var(--sombra-foco);
+}
+
+
+/* ==========================================================
+   BOTÃO
+========================================================== */
+
+.btnEntrar {
+    width: 100%;
+    height: 48px;
+
+    margin-top: 1px;
+
+    border: none;
+    border-radius: 12px;
+
+    background: var(--cor-primaria);
+
+    color: var(--cor-superficie);
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow: 0 5px 12px var(--sombra-botao);
+
+    transition: 0.2s ease;
+}
+
+
+.btnEntrar:hover {
+    background: var(--cor-primaria-hover);
+
+    transform: translateY(-1px);
+
+    box-shadow: 0 8px 17px var(--sombra-botao-hover);
+}
+
+
+.btnEntrar:active {
+    transform: translateY(0);
+}
+
+
+.btnEntrar:disabled {
+    cursor: wait;
+    opacity: 0.75;
+    transform: none;
+}
+
+
+.mensagem {
+    margin: 12px 2px 0;
+
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: center;
+}
+
+
+.mensagemErro {
+    color: var(--cor-erro-texto);
+}
+
+
+.mensagemSucesso {
+    color: var(--cor-sucesso);
+}
+
+
+/* ==========================================================
+   LADO DIREITO
+========================================================== */
+
+.loginRight {
+    width: 100%;
+    min-width: 0;
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 40px 50px 65px;
+
+    position: relative;
+
+    background: var(--cor-fundo-login);
+
+    overflow: hidden;
+}
+
+
+.rightContent {
+    width: 100%;
+    max-width: 560px;
+
+    position: relative;
+}
+
+
+/* ==========================================================
+   ÁREA DAS FOTOS
+========================================================== */
+
+.visualArea {
+    width: 100%;
+    height: 355px;
+
+    position: relative;
+}
+
+
+/* ==========================================================
+   FOTOS
+========================================================== */
+
+.photo {
+    position: absolute;
+
+    overflow: hidden;
+
+    background: var(--cor-fundo-suave);
+
+    box-shadow: 0 4px 12px var(--sombra-login);
+}
+
+
+.photo img {
+    width: 100%;
+    height: 100%;
+
+    display: block;
+
+    object-fit: cover;
+}
+
+
+/* COZINHA */
+
+.photoCozinha {
+    width: 160px;
+    height: 175px;
+
+    top: 0;
+    left: 0;
+
+    border-radius:
+            65px
+            65px
+            65px
+            18px;
+}
+
+
+/* COSTURA */
+
+.photoCostura {
+    width: 125px;
+    height: 100px;
+
+    top: 35px;
+    right: 5px;
+
+    border-radius:
+            45px
+            45px
+            45px
+            15px;
+}
+
+
+/* CUIDADO */
+
+.photoCuidado {
+    width: 140px;
+    height: 120px;
+
+    right: 0;
+    bottom: 0;
+
+    border-radius:
+            55px
+            55px
+            18px
+            55px;
+}
+
+
+/* ==========================================================
+   LOGO MISSÃO GUADALUPE
+========================================================== */
+
+.missionLogoArea {
+    position: absolute;
+
+    top: 170px;
+    left: 50%;
+
+    width: 155px;
+
+    transform: translate(-50%, -50%);
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    z-index: 3;
+}
+
+
+.missionLogo {
+    width: 155px;
+    max-width: 100%;
+    height: auto;
+
+    display: block;
+
+    object-fit: contain;
+}
+
+
+/* ==========================================================
+   FORMAS DECORATIVAS
+========================================================== */
+
+.shape {
+    position: absolute;
+
+    pointer-events: none;
+}
+
+
+.shapeGreen {
+    width: 42px;
+    height: 42px;
+
+    top: 215px;
+    left: 18px;
+
+    border-radius: 15px;
+
+    background: var(--cor-decorativa-verde);
+}
+
+
+.shapeYellow {
+    width: 50px;
+    height: 50px;
+
+    top: 28px;
+    right: -8px;
+
+    border-radius: 50%;
+
+    background: var(--cor-decorativa-amarela);
+}
+
+
+.shapeBlueSmall {
+    width: 13px;
+    height: 13px;
+
+    top: 125px;
+    right: 140px;
+
+    border-radius: 50%;
+
+    background: var(--cor-decorativa-azul);
+}
+
+
+.shapePink {
+    width: 50px;
+    height: 50px;
+
+    right: -4px;
+    bottom: -17px;
+
+    border-radius: 17px;
+
+    background: var(--cor-decorativa-rosa);
+
+    transform: rotate(-10deg);
+}
+
+
+.shapeBlueBottom {
+    width: 25px;
+    height: 25px;
+
+    left: 30px;
+    bottom: -55px;
+
+    border-radius: 50%;
+
+    background: var(--cor-decorativa-azul-clara);
+}
+
+
+/* ==========================================================
+   TEXTO DO LADO DIREITO
+========================================================== */
+
+.rightInfo {
+    width: 100%;
+
+    margin-top: 20px;
+
+    padding-left: 45px;
+}
+
+
+.rightInfo h2 {
+    max-width: 450px;
+
+    margin: 0 0 22px;
+
+    color: var(--cor-texto-principal);
+
+    font-size: 22px;
+    font-weight: 700;
+
+    line-height: 1.2;
+
+    letter-spacing: -0.4px;
+}
+
+
+/* ==========================================================
+   CARDS
+========================================================== */
+
+.features {
+    display: flex;
+    align-items: center;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+}
+
+
+.featureCard {
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+
+    padding: 0 11px;
+
+    border: 1px solid var(--cor-borda);
+    border-radius: 9px;
+
+    background: var(--cor-superficie);
+
+    color: var(--cor-texto-principal);
+
+    font-size: 11px;
+    font-weight: 500;
+}
+
+
+.featureIcon {
+    width: 24px;
+    height: 24px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 7px;
+
+    font-size: 12px;
+}
+
+
+.blue {
+    color: var(--cor-primaria);
+    background: var(--cor-fundo-azul);
+}
+
+
+.yellow {
+    color: var(--cor-alerta);
+    background: var(--cor-fundo-amarelo);
+}
+
+
+.green {
+    color: var(--cor-sucesso);
+    background: var(--cor-fundo-verde);
+}
+
+
+/* ==========================================================
+   NOTEBOOK
+========================================================== */
+
+@media (max-width: 1200px) {
+
+    .loginLeft {
+        padding: 45px;
+    }
+
+
+    .loginContent {
+        max-width: 390px;
+    }
+
+
+    .loginRight {
+        padding: 40px;
+    }
+
+
+    .rightContent {
+        max-width: 500px;
+    }
+
+
+    .visualArea {
+        height: 330px;
+    }
+
+
+    .photoCozinha {
+        width: 145px;
+        height: 155px;
+    }
+
+
+    .photoCostura {
+        width: 110px;
+        height: 90px;
+    }
+
+
+    .photoCuidado {
+        width: 125px;
+        height: 105px;
+    }
+
+
+    .missionLogoArea {
+        top: 160px;
+
+        width: 140px;
+    }
+
+
+    .missionLogo {
+        width: 140px;
+    }
+
+
+    .rightInfo {
+        padding-left: 30px;
+    }
+
+
+    .rightInfo h2 {
+        font-size: 20px;
+    }
+}
+
+
+/* ==========================================================
+   TABLET
+========================================================== */
+
+@media (max-width: 850px) {
+
+    .loginPage {
+        display: flex;
+        flex-direction: column;
+
+        min-height: auto;
+    }
+
+
+    .loginLeft {
+        width: 100%;
+
+        min-height: 100vh;
+
+        padding: 60px 30px;
+    }
+
+
+    .loginContent {
+        max-width: 450px;
+    }
+
+
+    .loginRight {
+        width: 100%;
+
+        min-height: 650px;
+
+        padding: 60px 30px 90px;
+
+        overflow: hidden;
+    }
+
+
+    .rightContent {
+        max-width: 530px;
+    }
+}
+
+
+/* ==========================================================
+   CELULAR
+========================================================== */
+
+@media (max-width: 600px) {
+
+    .loginLeft {
+        min-height: 100svh;
+
+        padding: 35px 22px;
+    }
+
+
+    .loginContent {
+        width: 100%;
+        max-width: 100%;
+    }
+
+
+    .logoGestoesArea {
+        margin-bottom: 40px;
+    }
+
+
+    .logoGestoes {
+        width: 135px;
+    }
+
+
+    .loginHeader {
+        margin-bottom: 28px;
+    }
+
+
+    .loginHeader h1 {
+        font-size: 25px;
+    }
+
+
+    .loginHeader p {
+        max-width: 340px;
+
+        font-size: 12.5px;
+    }
+
+
+    .formGroup input {
+        height: 48px;
+    }
+
+
+    .btnEntrar {
+        height: 50px;
+    }
+
+
+    /* DIREITA */
+
+    .loginRight {
+        min-height: 610px;
+
+        padding: 45px 20px 80px;
+    }
+
+
+    .rightContent {
+        max-width: 390px;
+    }
+
+
+    .visualArea {
+        height: 300px;
+    }
+
+
+    .photoCozinha {
+        width: 120px;
+        height: 130px;
+    }
+
+
+    .photoCostura {
+        width: 90px;
+        height: 75px;
+
+        right: 0;
+    }
+
+
+    .photoCuidado {
+        width: 105px;
+        height: 90px;
+    }
+
+
+    .missionLogoArea {
+        top: 145px;
+
+        width: 115px;
+    }
+
+
+    .missionLogo {
+        width: 115px;
+    }
+
+
+    .shapeGreen {
+        width: 34px;
+        height: 34px;
+
+        top: 175px;
+    }
+
+
+    .shapeYellow {
+        width: 40px;
+        height: 40px;
+    }
+
+
+    .shapeBlueSmall {
+        width: 10px;
+        height: 10px;
+
+        right: 95px;
+    }
+
+
+    .shapePink {
+        width: 40px;
+        height: 40px;
+    }
+
+
+    .rightInfo {
+        margin-top: 25px;
+
+        padding: 0;
+
+        text-align: center;
+    }
+
+
+    .rightInfo h2 {
+        max-width: 340px;
+
+        margin-left: auto;
+        margin-right: auto;
+
+        font-size: 19px;
+    }
+
+
+    .desktopBreak {
+        display: none;
+    }
+
+
+    .features {
+        justify-content: center;
+    }
+
+
+    .featureCard {
+        height: 40px;
+
+        padding: 0 9px;
+
+        font-size: 10px;
+    }
+
+
+    .shapeBlueBottom {
+        display: none;
+    }
+}

@@ -1,0 +1,223 @@
+.projetos {
+    width: 100%;
+
+    background: var(--cor-superficie);
+
+    border: 1px solid var(--cor-borda);
+
+    border-radius: 10px;
+
+    box-shadow:
+            0 2px 7px var(--sombra-suave);
+
+    overflow: hidden;
+}
+
+/* CABEÇALHO */
+
+.projetos-header {
+    padding: 15px 16px 10px;
+}
+
+.projetos-header h2 {
+    margin: 0;
+
+    color: var(--cor-texto-principal);
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* TABELA */
+
+.tabela-container {
+    width: 100%;
+
+    overflow-x: auto;
+}
+
+.projetos table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    table-layout: fixed;
+}
+
+.projetos thead {
+    background: var(--cor-superficie);
+}
+
+.projetos th {
+    height: 34px;
+
+    padding: 0 13px;
+
+    color: var(--cor-texto-secundario);
+
+    text-align: left;
+
+    font-size: 7px;
+    font-weight: 600;
+
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.projetos td {
+    height: 46px;
+
+    padding: 7px 13px;
+
+    color: var(--cor-texto-principal);
+
+    font-size: 8px;
+
+    border-bottom: 1px solid var(--cor-borda);
+
+    vertical-align: middle;
+}
+
+.projetos tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.projetos td.tabela-vazia {
+    height: 180px;
+
+    color: var(--cor-texto-suave);
+    font-size: 11px;
+    text-align: center;
+}
+
+/* LARGURAS */
+
+.projetos th:nth-child(1),
+.projetos td:nth-child(1) {
+    width: 22%;
+}
+
+.projetos th:nth-child(2),
+.projetos td:nth-child(2) {
+    width: 22%;
+}
+
+.projetos th:nth-child(3),
+.projetos td:nth-child(3) {
+    width: 20%;
+}
+
+.projetos th:nth-child(4),
+.projetos td:nth-child(4) {
+    width: 19%;
+}
+
+.projetos th:nth-child(5),
+.projetos td:nth-child(5) {
+    width: 17%;
+}
+
+/* PROJETO */
+
+.nome-projeto {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    font-weight: 500;
+}
+
+.dot {
+    width: 5px;
+    height: 5px;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+}
+
+.dot.blue {
+    background: var(--cor-marcador-azul);
+}
+
+.dot.cyan {
+    background: var(--cor-acento);
+}
+
+.dot.red {
+    background: var(--cor-perigo);
+}
+
+.dot.green {
+    background: var(--cor-sucesso);
+}
+
+.dot.purple {
+    background: var(--cor-roxo);
+}
+
+.dot.orange {
+    background: var(--cor-alerta);
+}
+
+/* STATUS */
+
+.status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 21px;
+
+    padding: 3px 8px;
+
+    border-radius: 20px;
+
+    font-size: 7px;
+
+    white-space: nowrap;
+}
+
+.status.andamento {
+    color: var(--cor-sucesso);
+
+    background: var(--cor-fundo-verde);
+
+    border: 1px solid var(--cor-borda-verde);
+}
+
+.status.atencao {
+    color: var(--cor-alerta);
+
+    background: var(--cor-fundo-amarelo);
+
+    border: 1px solid var(--cor-borda-amarela);
+}
+
+.status.estrutura {
+    color: var(--cor-primaria);
+
+    background: var(--cor-fundo-azul);
+
+    border: 1px solid var(--cor-borda-azul);
+}
+
+/* SALDO NEGATIVO */
+
+.saldo-negativo {
+    color: var(--cor-perigo);
+}
+
+/* HOVER */
+
+.projetos tbody tr:hover {
+    background: var(--cor-fundo-suave);
+}
+
+/* RESPONSIVO */
+
+@media (max-width: 850px) {
+    .projetos table {
+        min-width: 750px;
+    }
+}
