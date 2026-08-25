@@ -12,7 +12,7 @@ import "./Dashboard.css";
 import "./CadastroUsuario.css";
 
 // Exibe o formulário e recebe o usuário autenticado e o endereço central da API.
-export default function CadastroUsuario({ usuario, apiUrl }) {
+export default function CadastroUsuario({ usuario, apiUrl, onLogout }) {
 
     // Cria a função de navegação entre páginas.
     const navigate = useNavigate();
@@ -40,7 +40,9 @@ export default function CadastroUsuario({ usuario, apiUrl }) {
                 const dados = await resposta.json().catch(() => ({}));
 
                 if (!resposta.ok || !dados.sucesso) {
-                    throw new Error("Não foi possível carregar os projetos.");
+                    throw new Error(
+                        dados.mensagem || dados.erro || "O servidor não informou o motivo do erro."
+                    );
                 }
 
                 setProjetos(Array.isArray(dados.projetos) ? dados.projetos : []);
@@ -83,17 +85,13 @@ export default function CadastroUsuario({ usuario, apiUrl }) {
             // Considera tanto o status HTTP quanto o campo sucesso da API.
             if (!resposta.ok || !dados.sucesso) {
                 const mensagemDaApi = dados.mensagem || dados.erro;
-                const texto = resposta.status < 500 && mensagemDaApi
-                    ? mensagemDaApi
-                    : "Não foi possível criar o usuário agora. Tente novamente.";
-
-                throw new Error(texto);
+                throw new Error(mensagemDaApi || "O servidor não informou o motivo do erro.");
             }
 
             // Informa o sucesso usando preferencialmente a mensagem do backend.
             setMensagem({
                 tipo: "sucesso",
-                texto: dados.mensagem || "Usuário criado com sucesso!"
+                texto: dados.mensagem
             });
 
             // Limpa todos os campos depois que o backend confirmar o cadastro.
@@ -102,7 +100,10 @@ export default function CadastroUsuario({ usuario, apiUrl }) {
             setTipo("0");
             // Aguarda a mensagem de sucesso e abre a lista atualizada.
             await new Promise((resolve) => setTimeout(resolve, 900));
-            navigate("/usuarios", { replace: true });
+            navigate("/usuarios", {
+                replace: true,
+                state: { mensagem: dados.mensagem }
+            });
         } catch (error) {
             // Transforma falha de conexão em uma orientação legível.
             const texto = error instanceof TypeError
@@ -124,7 +125,7 @@ export default function CadastroUsuario({ usuario, apiUrl }) {
         <div className="app">
 
             {/* Mantém o item Usuários destacado no menu lateral. */}
-            <Sidebar paginaAtiva="Usuários" tipoUsuario={usuario.tipo} />
+            <Sidebar paginaAtiva="Usuários" tipoUsuario={usuario.tipo} onLogout={onLogout} />
 
             {/* Agrupa o cabeçalho e o conteúdo da página. */}
             <div className="main">
@@ -159,6 +160,7 @@ export default function CadastroUsuario({ usuario, apiUrl }) {
                         id="form-novo-usuario"
                         className="cadastro-usuario-form"
                         onSubmit={cadastrarUsuario}
+                        noValidate
                     >
 
                         {/* Primeiro painel com os dados principais da conta. */}
@@ -305,6 +307,8 @@ export default function CadastroUsuario({ usuario, apiUrl }) {
                         {/* Exibe o retorno da API com semântica acessível. */}
                         {mensagem && (
                             <p
+                                id="mensagem-retorno"
+                                data-testid="mensagem-retorno"
                                 role={mensagem.tipo === "erro" ? "alert" : "status"}
                                 className={`cadastro-mensagem ${
                                     mensagem.tipo === "erro"

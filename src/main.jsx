@@ -9,7 +9,6 @@ import App from "./App.jsx";
 createRoot(document.getElementById("root")).render(
     // Executa verificações extras para encontrar efeitos colaterais e APIs obsoletas.
     <StrictMode>
-        {/* Renderiza toda a aplicação. */}
         <App />
     </StrictMode>
 );

@@ -3,11 +3,11 @@ import Sidebar from "../../components/Sidebar.jsx";
 // Importa o cabeçalho que exibe os dados do usuário atualmente autenticado.
 import Header from "../../components/Header.jsx";
 // Importa somente os ícones utilizados nesta página para evitar código desnecessário.
-import { Plus, Save, Search, SlidersHorizontal, Trash2, UsersRound, X } from "lucide-react";
+import { AlertTriangle, Plus, Save, Search, SlidersHorizontal, Trash2, UsersRound, X } from "lucide-react";
 // Importa useEffect para buscar os usuários e useState para guardar os estados da tela.
 import { useEffect, useState } from "react";
-// Importa useNavigate para trocar de rota sem recarregar a aplicação inteira.
-import { useNavigate } from "react-router-dom";
+// Importa os recursos de rota usados na navegação e nas mensagens entre páginas.
+import { useLocation, useNavigate } from "react-router-dom";
 // Importa as classes compartilhadas de estrutura, cores e posicionamento da dashboard.
 import "./Dashboard.css";
 // Importa as classes usadas exclusivamente pela página de listagem de usuários.
@@ -111,9 +111,10 @@ function formatarProjetosPermitidos(item) {
 
 // Componente principal responsável por carregar e apresentar os usuários cadastrados.
 // A propriedade usuario contém a conta autenticada e apiUrl contém o endereço central da API.
-export default function Usuarios({ usuario, apiUrl }) {
+export default function Usuarios({ usuario, apiUrl, onSessaoInvalida, onLogout }) {
     // Cria a função usada para navegar até o formulário de novo usuário.
     const navigate = useNavigate();
+    const location = useLocation();
     // Guarda apenas os registros devolvidos pelo endpoint GET /usuarios.
     const [usuarios, setUsuarios] = useState([]);
     // Guarda o texto digitado no campo de busca para filtrar a lista localmente.
@@ -126,10 +127,18 @@ export default function Usuarios({ usuario, apiUrl }) {
     const [projetos, setProjetos] = useState([]);
     // Guarda os campos editáveis do usuário selecionado ou null quando o modal está fechado.
     const [edicao, setEdicao] = useState(null);
+    // Controla o card de confirmação exibido antes da exclusão definitiva.
+    const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
     // Controla o estado dos botões enquanto uma edição ou exclusão está sendo enviada.
     const [processando, setProcessando] = useState(false);
     // Guarda uma mensagem de erro exclusiva das ações executadas dentro do modal.
     const [erroModal, setErroModal] = useState("");
+    // Mantém no DOM o retorno do backend após editar ou excluir uma conta.
+    const [mensagemAcao, setMensagemAcao] = useState(() =>
+        location.state?.mensagem
+            ? { tipo: "sucesso", texto: location.state.mensagem }
+            : null
+    );
     // Incrementar este número solicita uma nova leitura dos dados após editar ou excluir.
     const [versaoLista, setVersaoLista] = useState(0);
 
@@ -142,33 +151,58 @@ export default function Usuarios({ usuario, apiUrl }) {
         async function carregarUsuarios() {
             // Inicia o tratamento que separa sucesso, erro e finalização.
             try {
-                // Busca em paralelo as contas cadastradas e as opções disponíveis de projeto.
-                const [respostaUsuarios, respostaProjetos] = await Promise.all([
-                    fetch(`${apiUrl}/usuarios`, {
-                        credentials: "include",
-                        signal: controller.signal
-                    }),
-                    fetch(`${apiUrl}/projetos`, {
-                        credentials: "include",
-                        signal: controller.signal
-                    })
-                ]);
-                // Converte as duas respostas para JSON sem expor falhas técnicas de conversão.
-                const [dadosUsuarios, dadosProjetos] = await Promise.all([
-                    respostaUsuarios.json().catch(() => ({})),
-                    respostaProjetos.json().catch(() => ({}))
-                ]);
+                setErro("");
 
-                // Exige sucesso dos dois endpoints porque ambos são usados pelo modal.
-                if (!respostaUsuarios.ok || !dadosUsuarios.sucesso
-                    || !respostaProjetos.ok || !dadosProjetos.sucesso) {
-                    // Gera uma mensagem controlada em vez de mostrar um erro técnico ao usuário.
-                    throw new Error("Não foi possível carregar os usuários.");
+                // A lista de projetos é auxiliar e não deve impedir a exibição dos usuários.
+                const requisicaoProjetos = fetch(`${apiUrl}/projetos`, {
+                    credentials: "include",
+                    signal: controller.signal
+                }).catch(() => null);
+
+                const respostaUsuarios = await fetch(`${apiUrl}/usuarios`, {
+                    credentials: "include",
+                    signal: controller.signal
+                });
+                const dadosUsuarios = await respostaUsuarios.json().catch(() => ({}));
+
+                // Uma sessão expirada não deve continuar aparecendo como autenticada na interface.
+                if (respostaUsuarios.status === 401 || respostaUsuarios.status === 403) {
+                    onSessaoInvalida();
+                    navigate("/", {
+                        replace: true,
+                        state: {
+                            mensagem: {
+                                tipo: "erro",
+                                texto: "Sua sessão expirou. Entre novamente para continuar."
+                            }
+                        }
+                    });
+                    return;
                 }
 
-                // Confirma os formatos antes de armazenar as listas devolvidas pelo backend.
+                // Somente uma falha do endpoint de usuários coloca a listagem em estado de erro.
+                if (!respostaUsuarios.ok || !dadosUsuarios.sucesso) {
+                    throw new Error(
+                        dadosUsuarios.mensagem
+                        || dadosUsuarios.erro
+                        || "O servidor não informou o motivo do erro."
+                    );
+                }
+
+                // Uma lista vazia é uma resposta válida e ativa o estado "Sem usuários".
                 setUsuarios(Array.isArray(dadosUsuarios.usuarios) ? dadosUsuarios.usuarios : []);
-                setProjetos(Array.isArray(dadosProjetos.projetos) ? dadosProjetos.projetos : []);
+
+                const respostaProjetos = await requisicaoProjetos;
+                if (respostaProjetos?.ok) {
+                    const dadosProjetos = await respostaProjetos.json().catch(() => ({}));
+                    setProjetos(
+                        dadosProjetos.sucesso && Array.isArray(dadosProjetos.projetos)
+                            ? dadosProjetos.projetos
+                            : []
+                    );
+                } else {
+                    setProjetos([]);
+                }
             } catch (error) {
                 // Ignora o erro esperado quando a própria página cancela a requisição.
                 if (error.name !== "AbortError") {
@@ -196,7 +230,7 @@ export default function Usuarios({ usuario, apiUrl }) {
         // Retorna a limpeza do efeito, cancelando uma chamada ainda pendente ao sair da página.
         return () => controller.abort();
     // A versão permite repetir a leitura depois de salvar ou excluir um usuário.
-    }, [apiUrl, versaoLista]);
+    }, [apiUrl, navigate, onSessaoInvalida, versaoLista]);
 
     // Abre o modal preenchendo os campos com os dados da linha que recebeu o clique.
     function abrirEdicao(item) {
@@ -218,6 +252,7 @@ export default function Usuarios({ usuario, apiUrl }) {
     // Fecha o modal somente quando nenhuma operação está em andamento.
     function fecharEdicao() {
         if (!processando) {
+            setConfirmandoExclusao(false);
             setEdicao(null);
             setErroModal("");
         }
@@ -246,6 +281,7 @@ export default function Usuarios({ usuario, apiUrl }) {
         event.preventDefault();
         setProcessando(true);
         setErroModal("");
+        setMensagemAcao(null);
 
         // Monta o mesmo formato multipart usado pelo cadastro de usuários.
         const formulario = new FormData();
@@ -270,11 +306,14 @@ export default function Usuarios({ usuario, apiUrl }) {
             const dados = await resposta.json().catch(() => ({}));
 
             if (!resposta.ok || !dados.sucesso) {
-                throw new Error(dados.mensagem || "Não foi possível atualizar o usuário.");
+                throw new Error(
+                    dados.mensagem || dados.erro || "O servidor não informou o motivo do erro."
+                );
             }
 
             // Fecha o modal e solicita à API uma lista já atualizada.
             setEdicao(null);
+            setMensagemAcao({ tipo: "sucesso", texto: dados.mensagem });
             setVersaoLista((versaoAtual) => versaoAtual + 1);
         } catch (error) {
             setErroModal(
@@ -287,18 +326,11 @@ export default function Usuarios({ usuario, apiUrl }) {
         }
     }
 
-    // Solicita confirmação antes de realizar a exclusão definitiva da conta.
+    // Realiza a exclusão somente depois da confirmação no card da interface.
     async function excluirUsuario() {
-        const confirmou = window.confirm(
-            `Deseja realmente excluir o usuário ${edicao.nome}?`
-        );
-
-        if (!confirmou) {
-            return;
-        }
-
         setProcessando(true);
         setErroModal("");
+        setMensagemAcao(null);
 
         try {
             const resposta = await fetch(`${apiUrl}/usuarios/${edicao.id_usuario}`, {
@@ -308,11 +340,15 @@ export default function Usuarios({ usuario, apiUrl }) {
             const dados = await resposta.json().catch(() => ({}));
 
             if (!resposta.ok || !dados.sucesso) {
-                throw new Error(dados.mensagem || "Não foi possível excluir o usuário.");
+                throw new Error(
+                    dados.mensagem || dados.erro || "O servidor não informou o motivo do erro."
+                );
             }
 
             // Fecha o modal e recarrega a tabela sem manter dados excluídos na interface.
+            setConfirmandoExclusao(false);
             setEdicao(null);
+            setMensagemAcao({ tipo: "sucesso", texto: dados.mensagem });
             setVersaoLista((versaoAtual) => versaoAtual + 1);
         } catch (error) {
             setErroModal(
@@ -328,7 +364,9 @@ export default function Usuarios({ usuario, apiUrl }) {
     // Permite fechar o modal pela tecla Escape sem criar eventos permanentes na página.
     useEffect(() => {
         function fecharComEscape(event) {
-            if (event.key === "Escape") {
+            if (event.key === "Escape" && confirmandoExclusao && !processando) {
+                setConfirmandoExclusao(false);
+            } else if (event.key === "Escape") {
                 fecharEdicao();
             }
         }
@@ -338,7 +376,7 @@ export default function Usuarios({ usuario, apiUrl }) {
         }
 
         return () => window.removeEventListener("keydown", fecharComEscape);
-    }, [edicao, processando]);
+    }, [edicao, processando, confirmandoExclusao]);
 
     // Remove espaços e ignora diferenças entre letras maiúsculas e minúsculas na pesquisa.
     const termo = busca.trim().toLowerCase();
@@ -359,7 +397,7 @@ export default function Usuarios({ usuario, apiUrl }) {
 
             {/* Renderiza a navegação e mantém Usuários destacado como página atual. */}
             {/* O tipo da conta é enviado para a sidebar controlar os itens permitidos. */}
-            <Sidebar paginaAtiva="Usuários" tipoUsuario={usuario.tipo} />
+            <Sidebar paginaAtiva="Usuários" tipoUsuario={usuario.tipo} onLogout={onLogout} />
 
             {/* Agrupa verticalmente o cabeçalho e o conteúdo localizado ao lado da sidebar. */}
             <div className="main">
@@ -442,6 +480,17 @@ export default function Usuarios({ usuario, apiUrl }) {
                         </label>
                     </section>
 
+                    {mensagemAcao?.texto && (
+                        <p
+                            id="mensagem-retorno"
+                            data-testid="mensagem-retorno"
+                            role="status"
+                            className="usuarios-mensagem usuarios-mensagem-sucesso"
+                        >
+                            {mensagemAcao.texto}
+                        </p>
+                    )}
+
                     {/* Card principal que alterna entre os possíveis estados da listagem. */}
                     <section className="usuarios-tabela-card">
                         {/* Enquanto a requisição não terminou, mostra somente o estado de carregamento. */}
@@ -460,7 +509,7 @@ export default function Usuarios({ usuario, apiUrl }) {
                                 {/* Diferencia uma busca sem resultado da ausência total de cadastros. */}
                                 {termo
                                     ? "Nenhum usuário encontrado para esta busca."
-                                    : "Nenhum usuário cadastrado."}
+                                    : "Sem usuários."}
                             </p>
                         // A tabela só é criada quando existem registros disponíveis para exibição.
                         ) : (
@@ -571,6 +620,7 @@ export default function Usuarios({ usuario, apiUrl }) {
                         aria-modal="true"
                         aria-labelledby="titulo-editar-usuario"
                         onSubmit={salvarEdicao}
+                        noValidate
                     >
                         {/* Cabeçalho do modal com identificação e ação de fechamento. */}
                         <div className="usuarios-modal-header">
@@ -605,6 +655,7 @@ export default function Usuarios({ usuario, apiUrl }) {
                             <label className="usuarios-modal-field usuarios-modal-field-full">
                                 <span>E-mail</span>
                                 <input
+                                    id="email"
                                     type="email"
                                     value={edicao.email}
                                     onChange={(event) => atualizarCampo("email", event.target.value)}
@@ -664,7 +715,13 @@ export default function Usuarios({ usuario, apiUrl }) {
 
                         {/* Mostra falhas de validação ou comunicação sem fechar o modal. */}
                         {erroModal && (
-                            <p className="usuarios-modal-erro" role="alert">
+                            <p
+                                id="mensagem-retorno"
+                                data-testid="mensagem-retorno"
+                                className="usuarios-modal-erro"
+                                role="alert"
+                                aria-live="assertive"
+                            >
                                 {erroModal}
                             </p>
                         )}
@@ -672,9 +729,11 @@ export default function Usuarios({ usuario, apiUrl }) {
                         {/* Rodapé separa claramente a ação destrutiva da ação de salvar. */}
                         <div className="usuarios-modal-acoes">
                             <button
+                                id="btn-excluir-usuario"
+                                data-testid="btn-excluir-usuario"
                                 type="button"
                                 className="usuarios-btn-excluir"
-                                onClick={excluirUsuario}
+                                onClick={() => setConfirmandoExclusao(true)}
                                 disabled={processando}
                             >
                                 <Trash2 size={15} />
@@ -683,6 +742,8 @@ export default function Usuarios({ usuario, apiUrl }) {
 
                             <div>
                                 <button
+                                    id="btn-cancelar-edicao"
+                                    data-testid="btn-cancelar-edicao"
                                     type="button"
                                     className="usuarios-btn-cancelar"
                                     onClick={fecharEdicao}
@@ -691,6 +752,8 @@ export default function Usuarios({ usuario, apiUrl }) {
                                     Cancelar
                                 </button>
                                 <button
+                                    id="btn-salvar-usuario"
+                                    data-testid="btn-salvar-usuario"
                                     type="submit"
                                     className="usuarios-btn-salvar"
                                     disabled={processando}
@@ -701,6 +764,54 @@ export default function Usuarios({ usuario, apiUrl }) {
                             </div>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {edicao && confirmandoExclusao && (
+                <div
+                    className="usuarios-confirmacao-overlay"
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget && !processando) {
+                            setConfirmandoExclusao(false);
+                        }
+                    }}
+                >
+                    <section
+                        className="usuarios-confirmacao-card"
+                        role="alertdialog"
+                        aria-modal="true"
+                        aria-labelledby="titulo-confirmar-exclusao"
+                        aria-describedby="texto-confirmar-exclusao"
+                    >
+                        <span className="usuarios-confirmacao-icone" aria-hidden="true">
+                            <AlertTriangle size={22} />
+                        </span>
+                        <h2 id="titulo-confirmar-exclusao">Excluir usuário?</h2>
+                        <p id="texto-confirmar-exclusao">
+                            Deseja realmente excluir o usuário <strong>{edicao.nome}</strong>?
+                            Esta ação não poderá ser desfeita.
+                        </p>
+                        <div className="usuarios-confirmacao-acoes">
+                            <button
+                                type="button"
+                                className="usuarios-btn-cancelar"
+                                onClick={() => setConfirmandoExclusao(false)}
+                                disabled={processando}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="usuarios-confirmacao-excluir"
+                                onClick={excluirUsuario}
+                                disabled={processando}
+                                autoFocus
+                            >
+                                <Trash2 size={15} />
+                                {processando ? "Excluindo..." : "Excluir usuário"}
+                            </button>
+                        </div>
+                    </section>
                 </div>
             )}
 

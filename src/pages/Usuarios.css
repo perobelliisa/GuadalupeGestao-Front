@@ -594,6 +594,100 @@
     color: var(--cor-superficie);
 }
 
+/* CONFIRMAÇÃO DE EXCLUSÃO */
+
+.usuarios-confirmacao-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 24px;
+
+    background: rgba(20, 33, 61, 0.58);
+}
+
+.usuarios-confirmacao-card {
+    width: min(420px, 100%);
+    padding: 28px;
+
+    border: 1px solid var(--cor-borda);
+    border-radius: 16px;
+
+    background: var(--cor-superficie);
+    box-shadow: 0 22px 60px var(--sombra-modal);
+    text-align: center;
+}
+
+.usuarios-confirmacao-icone {
+    width: 48px;
+    height: 48px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: var(--cor-fundo-vermelho);
+    color: var(--cor-perigo);
+}
+
+.usuarios-confirmacao-card h2 {
+    margin: 16px 0 8px;
+
+    color: var(--cor-texto-principal);
+    font-size: 20px;
+}
+
+.usuarios-confirmacao-card p {
+    margin: 0;
+
+    color: var(--cor-texto-secundario);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.usuarios-confirmacao-acoes {
+    display: flex;
+    justify-content: center;
+
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.usuarios-confirmacao-acoes button {
+    min-height: 40px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+    padding: 0 16px;
+
+    border-radius: 9px;
+
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.usuarios-confirmacao-excluir {
+    border: 1px solid var(--cor-perigo);
+
+    background: var(--cor-perigo);
+    color: var(--cor-superficie);
+}
+
+.usuarios-confirmacao-acoes button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
 .usuarios-estado {
     min-height: 210px;
 
@@ -611,6 +705,16 @@
 
 .usuarios-estado-erro {
     color: var(--cor-erro-texto);
+}
+
+.usuarios-mensagem {
+    margin: 14px 0 0;
+    font-size: 12px;
+    text-align: center;
+}
+
+.usuarios-mensagem-sucesso {
+    color: var(--cor-sucesso);
 }
 
 /* RESPONSIVO */
@@ -665,6 +769,19 @@
 
     .usuarios-modal-acoes button,
     .usuarios-modal-acoes > div {
+        width: 100%;
+    }
+
+    .usuarios-confirmacao-overlay {
+        padding: 16px;
+    }
+
+    .usuarios-confirmacao-acoes {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+
+    .usuarios-confirmacao-acoes button {
         width: 100%;
     }
 }

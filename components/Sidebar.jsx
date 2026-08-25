@@ -1,5 +1,5 @@
 // Importa o ícone do ambiente atual.
-import { ShieldCheck } from "lucide-react";
+import { LogOut, ShieldCheck } from "lucide-react";
 // Importa a navegação usada pelos itens que já possuem página.
 import { useNavigate } from "react-router-dom";
 // Importa o módulo CSS e disponibiliza suas classes como propriedades.
@@ -11,6 +11,8 @@ export default function Sidebar({
                                     paginaAtiva = "Visão Geral",
                                     // Recebe o tipo real do usuário autenticado.
                                     tipoUsuario,
+                                    // Encerra a sessão quando o botão de saída for acionado.
+                                    onLogout,
                                     // Callback opcional chamado quando o usuário escolhe um item.
                                     onNavigate
                                 }) {
@@ -141,6 +143,23 @@ export default function Sidebar({
             onNavigate(item);
         }
 
+    }
+
+    // Encerra a sessão e abre o login sem apresentar erro de acesso protegido.
+    function sair() {
+        if (onLogout) {
+            onLogout();
+        }
+
+        navigate("/", {
+            replace: true,
+            state: {
+                mensagem: {
+                    tipo: "sucesso",
+                    texto: "Sessão encerrada com sucesso."
+                }
+            }
+        });
     }
 
 
@@ -282,6 +301,18 @@ export default function Sidebar({
                 })}
 
             </nav>
+
+            {/* Mantém a saída separada das opções de navegação. */}
+            <div className={css.logoutArea}>
+                <button
+                    type="button"
+                    className={css.logoutButton}
+                    onClick={sair}
+                >
+                    <LogOut size={17} aria-hidden="true" />
+                    <span>Sair</span>
+                </button>
+            </div>
 
         </aside>
 

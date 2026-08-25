@@ -1,17 +1,13 @@
 // Importa as duas páginas disponíveis na aplicação.
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
-// Importa a página administrativa de criação de usuários.
 import CadastroUsuario from "./pages/CadastroUsuario.jsx";
-// Importa a página que lista os usuários cadastrados.
 import Usuarios from "./pages/Usuarios.jsx";
-// useState mantém o usuário autenticado enquanto a aplicação está aberta.
 import { useState } from "react";
-// Componentes do React Router controlam as URLs e os redirecionamentos.
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-// Define a URL da API pelo ambiente e usa o servidor local apenas como alternativa.
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+// Usa o proxy local para que o cookie de autenticação seja enviado em todas as chamadas.
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 // Centraliza o nome usado para salvar o usuário na sessão do navegador.
 const CHAVE_USUARIO = "guadalupe.usuario";
 
@@ -54,6 +50,27 @@ export default function App() {
         setUsuario(usuarioLogado);
     }
 
+    // Remove uma sessão local quando a API informar que a autenticação expirou.
+    function encerrarSessao() {
+        sessionStorage.removeItem(CHAVE_USUARIO);
+        localStorage.removeItem(CHAVE_USUARIO);
+        setUsuario(null);
+    }
+
+    // Redireciona acessos protegidos para o login explicando o motivo ao usuário.
+    const redirecionarParaLogin = (
+        <Navigate
+            to="/"
+            replace
+            state={{
+                mensagem: {
+                    tipo: "erro",
+                    texto: "Você precisa estar autenticado para acessar esta página."
+                }
+            }}
+        />
+    );
+
     // Declara as páginas que podem ser acessadas por URL.
     return (
         // Habilita navegação por histórico do navegador.
@@ -70,8 +87,8 @@ export default function App() {
                     path="/dashboard"
           element={
             usuario
-              ? <Dashboard usuario={usuario} />
-              : <Navigate to="/" replace />
+              ? <Dashboard usuario={usuario} onLogout={encerrarSessao} />
+              : redirecionarParaLogin
                     }
                 />
                 {/* Protege a página de cadastro com a mesma sessão da dashboard. */}
@@ -79,8 +96,15 @@ export default function App() {
                     path="/usuarios"
                     element={
                         usuarioAdministrador
-                            ? <Usuarios usuario={usuario} apiUrl={API_URL} />
-                            : <Navigate to={usuario ? "/dashboard" : "/"} replace />
+                            ? <Usuarios
+                                usuario={usuario}
+                                apiUrl={API_URL}
+                                onSessaoInvalida={encerrarSessao}
+                                onLogout={encerrarSessao}
+                            />
+                            : usuario
+                                ? <Navigate to="/dashboard" replace />
+                                : redirecionarParaLogin
                     }
                 />
                 {/* Mantém o cadastro em uma rota separada da listagem. */}
@@ -88,8 +112,14 @@ export default function App() {
                     path="/usuarios/novo"
                     element={
                         usuarioAdministrador
-                            ? <CadastroUsuario usuario={usuario} apiUrl={API_URL} />
-                            : <Navigate to={usuario ? "/dashboard" : "/"} replace />
+                            ? <CadastroUsuario
+                                usuario={usuario}
+                                apiUrl={API_URL}
+                                onLogout={encerrarSessao}
+                            />
+                            : usuario
+                                ? <Navigate to="/dashboard" replace />
+                                : redirecionarParaLogin
                     }
                 />
                 {/* Redireciona qualquer endereço desconhecido para a página inicial. */}

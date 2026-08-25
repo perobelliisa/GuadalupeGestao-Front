@@ -5,11 +5,14 @@ import Header from "../../components/Header.jsx";
 import Cards from "../../components/Card.jsx";
 import Grafico from "../../components/Grafico.jsx";
 import Projetos from "../../components/Tabela.jsx";
+import { useLocation } from "react-router-dom";
 // Importa os estilos exclusivos da estrutura da página.
 import "./Dashboard.css";
 
 // Recebe o usuário autenticado e os dados que futuramente virão da API.
-export default function Dashboard({ usuario, dados }) {
+export default function Dashboard({ usuario, dados, onLogout }) {
+    const location = useLocation();
+    const mensagem = location.state?.mensagem;
 
     // Monta a estrutura visual da dashboard.
     return (
@@ -17,7 +20,7 @@ export default function Dashboard({ usuario, dados }) {
         <div className="app">
 
             {/* Menu lateral da aplicação. */}
-            <Sidebar tipoUsuario={usuario.tipo} />
+            <Sidebar tipoUsuario={usuario.tipo} onLogout={onLogout} />
 
             {/* Área principal que contém cabeçalho e conteúdo. */}
             <div className="main">
@@ -27,6 +30,17 @@ export default function Dashboard({ usuario, dados }) {
 
                 {/* Conteúdo central da visão geral. */}
                 <main className="content">
+
+                    {mensagem && (
+                        <p
+                            id="mensagem-retorno"
+                            data-testid="mensagem-retorno"
+                            className="mensagem-retorno mensagem-retorno-sucesso"
+                            role="status"
+                        >
+                            {mensagem}
+                        </p>
+                    )}
 
                     {/* Título e descrição da página atual. */}
                     <div className="page-header">

@@ -3,14 +3,15 @@ import css from "./Login.module.css";
 // useState controla mensagens e o estado de envio do formulário.
 import { useState } from "react";
 // useNavigate permite trocar de página depois da autenticação.
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 // Recebe a URL central da API e o callback que registra o usuário autenticado.
 export default function Login({ apiUrl, onLogin }) {
     // Cria a função responsável por navegar entre as rotas.
     const navigate = useNavigate();
+    const location = useLocation();
     // Guarda a mensagem de erro ou sucesso exibida abaixo do botão.
-    const [mensagem, setMensagem] = useState(null);
+    const [mensagem, setMensagem] = useState(() => location.state?.mensagem ?? null);
     // Informa se a requisição está em andamento e evita envios repetidos.
     const [carregando, setCarregando] = useState(false);
 
@@ -52,24 +53,21 @@ export default function Login({ apiUrl, onLogin }) {
             if (!resposta.ok) {
                 // Aproveita mensagens úteis devolvidas pelo backend.
                 const mensagemDaApi = dados.mensagem || dados.erro;
-                // Esconde detalhes internos quando o servidor falha com erro 500.
-                const mensagemAmigavel = resposta.status < 500 && mensagemDaApi
-                    ? mensagemDaApi
-                    : "Não foi possível entrar agora. Tente novamente em alguns instantes.";
-
                 // Interrompe o fluxo normal e envia o texto ao bloco catch.
-                throw new Error(mensagemAmigavel);
+                throw new Error(mensagemDaApi || "O servidor não informou o motivo do erro.");
             }
 
             // Confirma também o campo de sucesso definido pelo contrato da API.
             if (!dados.sucesso) {
-                throw new Error("Não foi possível confirmar o login. Tente novamente.");
+                throw new Error(
+                    dados.mensagem || dados.erro || "O servidor não confirmou o login."
+                );
             }
 
             // Prepara a confirmação visual apresentada ao usuário.
             setMensagem({
                 tipo: "sucesso",
-                texto: "Login realizado com sucesso! Redirecionando..."
+                texto: dados.mensagem
             });
 
             // Envia os dados públicos do login para o estado central da aplicação.
@@ -77,7 +75,10 @@ export default function Login({ apiUrl, onLogin }) {
             // Mantém a mensagem visível por um curto período antes da troca de página.
             await new Promise((resolve) => setTimeout(resolve, 900));
             // Abre a dashboard e substitui o login no histórico do navegador.
-            navigate("/dashboard", { replace: true });
+            navigate("/dashboard", {
+                replace: true,
+                state: { mensagem: dados.mensagem }
+            });
         } catch (error) {
             // Diferencia falha de rede de uma rejeição controlada pela aplicação.
             const texto = error instanceof TypeError
@@ -145,6 +146,7 @@ export default function Login({ apiUrl, onLogin }) {
                     <form
                         className={css.loginForm}
                         onSubmit={entrar}
+                        noValidate
                     >
 
                         {/* Grupo do campo de identificação do usuário. */}
@@ -189,6 +191,8 @@ export default function Login({ apiUrl, onLogin }) {
 
                         {/* Envia o formulário e permanece bloqueado durante a requisição. */}
                         <button
+                            id="btn-entrar"
+                            data-testid="btn-entrar"
                             type="submit"
                             className={css.btnEntrar}
                             disabled={carregando}
@@ -199,6 +203,8 @@ export default function Login({ apiUrl, onLogin }) {
                         {/* Mostra retorno acessível somente quando existe uma mensagem. */}
                         {mensagem && (
                             <p
+                                id="mensagem-retorno"
+                                data-testid="mensagem-retorno"
                                 role={mensagem.tipo === "erro" ? "alert" : "status"}
                                 className={`${css.mensagem} ${
                                     // Seleciona a cor conforme o tipo do retorno.
