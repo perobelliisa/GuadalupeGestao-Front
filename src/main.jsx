@@ -5,10 +5,13 @@ import { createRoot } from "react-dom/client";
 // Importa o componente principal, responsável pelas rotas e pelo estado global.
 import App from "./App.jsx";
 
+// Caminho central da API; o Vite o encaminha ao backend sem perder o cookie da sessao.
+const API = "/api";
+
 // Localiza o elemento HTML com id "root" e cria nele a raiz da aplicação React.
 createRoot(document.getElementById("root")).render(
     // Executa verificações extras para encontrar efeitos colaterais e APIs obsoletas.
     <StrictMode>
-        <App />
+        <App api={API} />
     </StrictMode>
 );

@@ -52,19 +52,22 @@ export default function Sidebar({
                 {
                     id: "livro-caixa",
                     nome: "Livro-caixa",
-                    icone: "/livrocaixa.png"
+                    icone: "/livrocaixa.png",
+                    rota: "/livro-caixa"
                 },
                 // Acesso aos registros de entrada.
                 {
                     id: "entradas",
                     nome: "Entradas",
-                    icone: "/entrada.png"
+                    icone: "/entrada.png",
+                    rota: "/entradas"
                 },
                 // Acesso aos registros de despesa.
                 {
                     id: "despesas",
                     nome: "Despesas",
-                    icone: "/despesa.png"
+                    icone: "/despesa.png",
+                    rota: "/despesas"
                 },
                 // Acesso aos registros de doações.
                 {
