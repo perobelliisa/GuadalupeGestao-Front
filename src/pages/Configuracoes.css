@@ -1,0 +1,21 @@
+.configuracoes-content { width: 100%; max-width: 1280px; margin: 0 auto; padding: 42px 34px 54px; }
+.configuracoes-title { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.configuracoes-title h1 { margin: 0; font-size: 25px; line-height: 1.2; }
+.configuracoes-title p { margin: 7px 0 0; color: var(--cor-texto-secundario); font-size: 12px; }
+.configuracoes-title button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 17px; border: 0; border-radius: 8px; background: var(--cor-primaria); color: white; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 5px 12px var(--sombra-botao); }
+.configuracoes-title button:disabled { cursor: wait; opacity: 0.65; }
+.configuracoes-panel { padding: 26px 24px; border: 1px solid var(--cor-borda); border-radius: 8px; background: white; box-shadow: 0 3px 9px var(--sombra-suave); }
+.configuracoes-panel-heading { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 26px; }
+.configuracoes-panel-heading > span { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 7px; background: var(--cor-fundo-azul); color: var(--cor-primaria); }
+.configuracoes-panel-heading h2 { margin: 0; font-size: 15px; }
+.configuracoes-panel-heading p { margin: 6px 0 0; color: var(--cor-texto-secundario); font-size: 10px; line-height: 1.5; }
+.configuracoes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.configuracoes-field { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.configuracoes-field > span { font-size: 10px; font-weight: 500; }
+.configuracoes-field input, .configuracoes-field select { width: 100%; min-width: 0; height: 42px; padding: 0 12px; border: 1px solid var(--cor-borda); border-radius: 7px; outline: 0; background: white; color: var(--cor-texto-principal); font-size: 11px; }
+.configuracoes-field input:focus, .configuracoes-field select:focus { border-color: var(--cor-primaria); box-shadow: 0 0 0 3px var(--sombra-foco); }
+.configuracoes-message { margin: 0 0 18px; padding: 12px 15px; border-radius: 7px; font-size: 11px; text-align: center; }
+.configuracoes-message.sucesso { border: 1px solid var(--cor-borda-verde); background: var(--cor-fundo-verde); color: var(--cor-sucesso); }
+.configuracoes-message.erro { border: 1px solid #ffd2cc; background: var(--cor-fundo-vermelho); color: var(--cor-erro-texto); }
+.configuracoes-state { margin: 0; color: var(--cor-texto-secundario); font-size: 11px; }
+@media (max-width: 700px) { .configuracoes-content { padding: 28px 20px 40px; } .configuracoes-title { align-items: flex-start; flex-direction: column; } .configuracoes-title h1 { font-size: 22px; } .configuracoes-title button { width: 100%; } .configuracoes-grid { grid-template-columns: 1fr; } }

@@ -20,15 +20,25 @@ const FORMAS_PAGAMENTO = [
 export default function NovaEntrada({ usuario, opcoes = {}, onRegistrar, onLogout }) {
     const navigate = useNavigate();
     const [arquivo, setArquivo] = useState("");
+    const [erro, setErro] = useState("");
+    const [salvando, setSalvando] = useState(false);
 
-    function registrar(event) {
+    async function registrar(event) {
         event.preventDefault();
         const entrada = Object.fromEntries(new FormData(event.currentTarget).entries());
         entrada.id_livro_caixa = crypto.randomUUID();
         entrada.tipo = 0;
         entrada.valor = Number(String(entrada.valor).replace(",", "."));
-        onRegistrar?.(entrada);
-        navigate("/entradas", { replace: true });
+        setErro("");
+        setSalvando(true);
+        try {
+            await onRegistrar?.(entrada);
+            navigate("/entradas", { replace: true });
+        } catch (error) {
+            setErro(error.message);
+        } finally {
+            setSalvando(false);
+        }
     }
 
     return (
@@ -38,12 +48,13 @@ export default function NovaEntrada({ usuario, opcoes = {}, onRegistrar, onLogou
                 <Header usuario={usuario} />
                 <main className="entradas-content nova-entrada-content">
                     <form id="nova-entrada-form" onSubmit={registrar} className="entrada-form">
-                        <div className="entradas-titlebar"><div><h1>Nova entrada</h1></div><button className="entradas-primary" type="submit"><Save size={16} /> Registrar entrada</button></div>
+                        <div className="entradas-titlebar"><div><h1>Nova entrada</h1></div><button className="entradas-primary" type="submit" disabled={salvando}><Save size={16} /> {salvando ? "Registrando..." : "Registrar entrada"}</button></div>
+                        {erro && <p className="mov-form-error" role="alert">{erro}</p>}
                         <section className="entrada-panel"><h2>Identificação</h2><div className="entrada-grid">
                             <label className="entrada-field full"><span>Descrição<b>*</b></span><input name="descricao" required /></label>
-                            <label className="entrada-field"><span>Valor<b>*</b></span><input name="valor" type="number" min="0" step="0.01" required /></label>
+                            <label className="entrada-field"><span>Valor<b>*</b></span><input name="valor" type="number" min="0.01" step="0.01" required /></label>
                             <label className="entrada-field"><span>Data<b>*</b></span><input name="dia" type="date" required /></label>
-                            <CampoMovimentacao label="Categoria" name="id_categoria" opcoes={opcoes.categorias} inputType="number" />
+                            <CampoMovimentacao label="Categoria" name="id_categoria" opcoes={opcoes.categorias} inputType="number" required />
                             <label className="entrada-field"><span>Conta<b>*</b></span><input name="conta" type="number" required /></label>
                         </div></section>
                         <section className="entrada-panel"><h2>Origem e pagamento</h2><div className="entrada-grid">

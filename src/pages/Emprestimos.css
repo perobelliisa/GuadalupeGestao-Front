@@ -1,0 +1,5 @@
+.summary-icon.loan { color: #b47a00; background: var(--cor-fundo-amarelo); }
+.emprestimos-table-card { overflow: hidden; border: 1px solid var(--cor-borda); border-radius: 8px; background: white; box-shadow: 0 3px 9px var(--sombra-suave); }
+.emprestimos-table-card table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.emprestimos-table-card th { padding: 14px 18px; color: var(--cor-texto-suave); font-size: 9px; text-align: left; white-space: nowrap; }
+.emprestimos-table-card td { padding: 14px 18px; border-top: 1px solid var(--cor-borda); }

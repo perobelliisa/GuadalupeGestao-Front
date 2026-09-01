@@ -13,7 +13,7 @@ const data = new Intl.DateTimeFormat("pt-BR");
 const formasPagamento = { 0: "Pix", 1: "Crédito", 2: "Débito", 3: "Boleto" };
 const statusDespesa = { 0: "Não pago", 1: "Pago" };
 
-export default function Despesas({ usuario, apiUrl, despesas = [], onAtualizar, onExcluir, onLogout }) {
+export default function Despesas({ usuario, apiUrl, despesas = [], categorias = [], onAtualizar, onLogout }) {
     const navigate = useNavigate();
     const [busca, setBusca] = useState("");
     const [selecionada, setSelecionada] = useState(null);
@@ -29,6 +29,6 @@ export default function Despesas({ usuario, apiUrl, despesas = [], onAtualizar, 
         <section className="entradas-summary"><article><span className="summary-icon blue"><ReceiptText size={19} /></span><div><small>Total no período</small><strong>{moeda.format(total)}</strong></div></article><article><span className="summary-icon teal"><CalendarClock size={19} /></span><div><small>Despesas registradas</small><strong>{despesas.length}</strong></div></article><article><span className="summary-icon green"><CircleCheck size={19} /></span><div><small>Pagas</small><strong>{pagas}</strong></div></article></section>
         <label className="entradas-search"><Search size={16} /><input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Buscar por descrição ou fornecedor..." /></label>
         <section className="entradas-table-card">{filtradas.length === 0 ? <div className="entradas-empty"><ReceiptText size={26} /><strong>{busca ? "Nenhuma despesa encontrada" : "Nenhuma despesa registrada"}</strong><span>{busca ? "Tente buscar usando outro termo." : "As despesas aparecerão aqui após o primeiro registro."}</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>FORNECEDOR</th><th>CATEGORIA</th><th>CONTA</th><th>VENCIMENTO</th><th>VALOR</th><th>FORMA</th><th>STATUS</th></tr></thead><tbody>{filtradas.map((item) => <tr key={item.id_livro_caixa} className="mov-row-clickable" tabIndex="0" role="button" onClick={() => setSelecionada(item)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelecionada(item); } }}><td>{item.dia ? data.format(new Date(`${item.dia}T12:00:00`)) : "-"}</td><td><strong>{item.descricao || "-"}</strong></td><td>{item.fornecedor || "-"}</td><td>{item.id_categoria || "-"}</td><td>{item.conta || "-"}</td><td>{item.vencimento ? data.format(new Date(`${item.vencimento}T12:00:00`)) : "-"}</td><td className="despesa-value">- {moeda.format(Number(item.valor || 0))}</td><td>{formasPagamento[item.forma_pagamento] ?? "-"}</td><td><span className={`despesa-status status-${item.status}`}>{statusDespesa[item.status] ?? "-"}</span></td></tr>)}</tbody></table></div>}</section>
-        {selecionada && <EditorMovimentacao item={selecionada} tipo="Despesa" apiUrl={apiUrl} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} onExcluir={onExcluir} />}
+        {selecionada && <EditorMovimentacao item={selecionada} tipo="Despesa" apiUrl={apiUrl} categorias={categorias} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}
     </main></div></div>;
 }

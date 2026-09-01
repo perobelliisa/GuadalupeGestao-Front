@@ -1,0 +1,12 @@
+.summary-icon.donation { color: #ff6b61; background: #fff0ee; }
+.summary-icon.material { color: #8b67e8; background: #f1ecff; }
+.doacoes-filters { display: grid; grid-template-columns: minmax(240px, 1fr) 170px 180px; gap: 10px; margin-bottom: 20px; padding: 14px; border: 1px solid var(--cor-borda); border-radius: 8px; background: white; }
+.doacoes-filters label { height: 36px; display: flex; align-items: center; gap: 9px; padding: 0 12px; border: 1px solid var(--cor-borda); border-radius: 7px; color: var(--cor-texto-suave); }
+.doacoes-filters input { width: 100%; border: 0; outline: 0; font-size: 11px; }
+.doacoes-filters select { min-width: 0; height: 36px; padding: 0 11px; border: 1px solid var(--cor-borda); border-radius: 7px; background: white; font-size: 10px; }
+.doacoes-table-card { overflow: hidden; border: 1px solid var(--cor-borda); border-radius: 8px; background: white; box-shadow: 0 3px 9px var(--sombra-suave); }
+.doacoes-table-card table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.doacoes-table-card th { padding: 14px 18px; color: var(--cor-texto-suave); font-size: 9px; text-align: left; white-space: nowrap; }
+.doacoes-table-card td { padding: 14px 18px; border-top: 1px solid var(--cor-borda); }
+.doacao-type { display: inline-flex; padding: 4px 9px; border-radius: 999px; background: var(--cor-fundo-azul); color: var(--cor-primaria); font-size: 9px; }
+@media (max-width: 900px) { .doacoes-filters { grid-template-columns: 1fr; } }

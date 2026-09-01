@@ -73,13 +73,15 @@ export default function Sidebar({
                 {
                     id: "doacoes",
                     nome: "Doações",
-                    icone: "/doacoes.png"
+                    icone: "/doacoes.png",
+                    rota: "/doacoes"
                 },
                 // Acesso aos registros de empréstimos.
                 {
                     id: "emprestimos",
                     nome: "Empréstimos",
-                    icone: "/emprestimos.png"
+                    icone: "/emprestimos.png",
+                    rota: "/emprestimos"
                 }
             ]
         },
@@ -125,7 +127,8 @@ export default function Sidebar({
                 {
                     id: "configuracoes",
                     nome: "Configurações",
-                    icone: "/configuracoes.png"
+                    icone: "/configuracoes.png",
+                    rota: "/configuracoes"
                 }
             ]
         }

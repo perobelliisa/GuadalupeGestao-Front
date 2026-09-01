@@ -2,6 +2,7 @@
 import {
     ChevronDown
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // Importa os estilos do cabeçalho.
 import "./Header.css";
@@ -25,6 +26,7 @@ function obterIniciais(nome = "") {
 
 // Exibe as informações do usuário autenticado no topo da página.
 export default function Header({ usuario }) {
+    const navigate = useNavigate();
     // Obtém o nome recebido da resposta do login, sem valor pessoal fixo.
     const nome = usuario.nome;
 
@@ -34,7 +36,7 @@ export default function Header({ usuario }) {
             {/* Agrupa todos os controles do lado direito. */}
             <div className="header-right">
                 {/* Agrupa saudação, avatar e indicação de menu. */}
-                <div className="usuario">
+                <button type="button" className="usuario" onClick={() => navigate("/configuracoes")} aria-label="Abrir configurações da conta">
 
                     {/* Exibe o nome dinâmico do usuário. */}
                     <span>
@@ -49,7 +51,7 @@ export default function Header({ usuario }) {
                     {/* Indica visualmente que a conta poderá abrir um menu. */}
                     <ChevronDown size={12} />
 
-                </div>
+                </button>
 
             </div>
 

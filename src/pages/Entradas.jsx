@@ -12,7 +12,7 @@ const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const data = new Intl.DateTimeFormat("pt-BR");
 const formasPagamento = { 0: "Pix", 1: "Crédito", 2: "Débito", 3: "Boleto" };
 
-export default function Entradas({ usuario, apiUrl, entradas = [], onAtualizar, onExcluir, onLogout }) {
+export default function Entradas({ usuario, apiUrl, entradas = [], categorias = [], onAtualizar, onLogout }) {
     const navigate = useNavigate();
     const [busca, setBusca] = useState("");
     const [selecionada, setSelecionada] = useState(null);
@@ -78,7 +78,7 @@ export default function Entradas({ usuario, apiUrl, entradas = [], onAtualizar, 
                     </section>
                 </main>
             </div>
-            {selecionada && <EditorMovimentacao item={selecionada} tipo="Entrada" apiUrl={apiUrl} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} onExcluir={onExcluir} />}
+            {selecionada && <EditorMovimentacao item={selecionada} tipo="Entrada" apiUrl={apiUrl} categorias={categorias} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}
         </div>
     );
 }

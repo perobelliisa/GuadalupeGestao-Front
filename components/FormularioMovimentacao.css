@@ -17,6 +17,7 @@
 .entrada-upload span { font-size: 9px; }
 .entrada-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .entrada-observacoes { margin-top: 18px; }
+.mov-form-error { margin: 0; padding: 11px 14px; border: 1px solid #ffd2cc; border-radius: 7px; background: var(--cor-fundo-vermelho); color: var(--cor-erro-texto); font-size: 11px; text-align: center; }
 
 @media (max-width: 700px) {
     .entrada-grid { grid-template-columns: 1fr; }

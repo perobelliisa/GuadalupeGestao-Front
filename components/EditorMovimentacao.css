@@ -26,6 +26,8 @@
 .mov-confirm-overlay p { margin: 0 0 20px; color: var(--cor-texto-secundario); font-size: 11px; }
 .mov-confirm-overlay section > div { display: flex; justify-content: center; gap: 10px; }
 .mov-delete-confirm { border: 1px solid var(--cor-perigo); background: var(--cor-perigo); color: white; }
+.mov-modal-error { margin: 0 24px 16px; padding: 10px 13px; border: 1px solid #ffd2cc; border-radius: 7px; background: var(--cor-fundo-vermelho); color: var(--cor-erro-texto); font-size: 11px; text-align: center; }
+.mov-modal button:disabled { cursor: wait; opacity: 0.65; }
 
 @media (max-width: 700px) {
     .mov-modal-overlay { padding: 10px; }
