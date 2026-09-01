@@ -3,8 +3,9 @@ import Header from "../../components/Header.jsx";
 import { ArrowDownToLine, CalendarCheck, Plus, Search, WalletCards } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import EditorMovimentacao from "./EditorMovimentacao.jsx";
+import EditorMovimentacao from "../../components/EditorMovimentacao.jsx";
 import "./Dashboard.css";
+import "../../components/Movimentacoes.css";
 import "./Entradas.css";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -19,14 +20,14 @@ export default function Entradas({ usuario, apiUrl, entradas = [], onAtualizar, 
     const resumo = useMemo(() => ({
         total: entradas.reduce((soma, item) => soma + Number(item.valor || 0), 0),
         registradas: entradas.length,
-        confirmadas: entradas.filter((item) => item.situacao === "Confirmado").length
+        confirmadas: entradas.filter((item) => Number(item.status) === 1).length
     }), [entradas]);
 
     const entradasFiltradas = useMemo(() => {
         const termo = busca.trim().toLocaleLowerCase("pt-BR");
         if (!termo) return entradas;
         return entradas.filter((item) =>
-            [item.descricao, item.origem, item.projetoNome, item.categoria]
+            [item.descricao, item.origem, item.id_categoria, item.conta]
                 .some((valor) => String(valor ?? "").toLocaleLowerCase("pt-BR").includes(termo))
         );
     }, [busca, entradas]);
@@ -64,13 +65,12 @@ export default function Entradas({ usuario, apiUrl, entradas = [], onAtualizar, 
                             </div>
                         ) : (
                             <div className="entradas-table-scroll"><table>
-                                <thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>PROJETO</th><th>CATEGORIA</th><th>VALOR</th><th>FORMA</th><th>SITUAÇÃO</th></tr></thead>
+                                <thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>CATEGORIA</th><th>CONTA</th><th>ORIGEM</th><th>VALOR</th><th>FORMA</th></tr></thead>
                                 <tbody>{entradasFiltradas.map((item) => (
-                                    <tr key={item.id} className="mov-row-clickable" tabIndex="0" role="button" onClick={() => setSelecionada(item)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelecionada(item); } }}>
-                                        <td>{item.data ? data.format(new Date(`${item.data}T12:00:00`)) : "-"}</td>
-                                        <td><strong>{item.descricao || "-"}</strong></td><td>{item.projetoNome || "-"}</td><td>{item.categoria || "-"}</td>
-                                        <td className="entrada-value">+ {moeda.format(Number(item.valor || 0))}</td><td>{formasPagamento[item.formaRecebimento] ?? item.formaRecebimento ?? "-"}</td>
-                                        <td><span className="entrada-status">{item.situacao || "-"}</span></td>
+                                    <tr key={item.id_livro_caixa} className="mov-row-clickable" tabIndex="0" role="button" onClick={() => setSelecionada(item)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelecionada(item); } }}>
+                                        <td>{item.dia ? data.format(new Date(`${item.dia}T12:00:00`)) : "-"}</td>
+                                        <td><strong>{item.descricao || "-"}</strong></td><td>{item.id_categoria || "-"}</td><td>{item.conta || "-"}</td><td>{item.origem || "-"}</td>
+                                        <td className="entrada-value">+ {moeda.format(Number(item.valor || 0))}</td><td>{formasPagamento[item.forma_pagamento] ?? item.forma_pagamento ?? "-"}</td>
                                     </tr>
                                 ))}</tbody>
                             </table></div>

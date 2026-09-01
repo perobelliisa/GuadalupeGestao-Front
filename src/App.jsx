@@ -68,11 +68,11 @@ export default function App({ api }) {
     }
 
     function atualizarEntrada(id, dados) {
-        setEntradas((atuais) => atuais.map((item) => item.id === id ? { ...item, ...dados } : item));
+        setEntradas((atuais) => atuais.map((item) => item.id_livro_caixa === id ? { ...item, ...dados } : item));
     }
 
     function excluirEntrada(id) {
-        setEntradas((atuais) => atuais.filter((item) => item.id !== id));
+        setEntradas((atuais) => atuais.filter((item) => item.id_livro_caixa !== id));
     }
 
     function registrarDespesa(despesa) {
@@ -80,11 +80,11 @@ export default function App({ api }) {
     }
 
     function atualizarDespesa(id, dados) {
-        setDespesas((atuais) => atuais.map((item) => item.id === id ? { ...item, ...dados } : item));
+        setDespesas((atuais) => atuais.map((item) => item.id_livro_caixa === id ? { ...item, ...dados } : item));
     }
 
     function excluirDespesa(id) {
-        setDespesas((atuais) => atuais.filter((item) => item.id !== id));
+        setDespesas((atuais) => atuais.filter((item) => item.id_livro_caixa !== id));
     }
 
     // Redireciona acessos protegidos para o login explicando o motivo ao usuário.

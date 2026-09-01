@@ -1,0 +1,38 @@
+.mov-modal-overlay { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 24px; background: var(--cor-overlay); }
+.mov-modal { position: relative; width: min(760px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; border-radius: 8px; background: white; box-shadow: 0 22px 60px var(--sombra-modal); }
+.mov-modal > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 24px; border-bottom: 1px solid var(--cor-borda); }
+.mov-modal > header h2 { margin: 0; font-size: 18px; }
+.mov-modal > header p { margin: 6px 0 0; color: var(--cor-texto-secundario); font-size: 11px; }
+.mov-modal > header button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--cor-texto-secundario); cursor: pointer; }
+.mov-modal > header button:hover { background: var(--cor-fundo-suave); }
+.mov-modal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; padding: 24px; }
+.mov-modal-grid label { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.mov-modal-grid label.full { grid-column: 1 / -1; }
+.mov-modal-grid label > span { font-size: 10px; font-weight: 500; }
+.mov-modal-grid input, .mov-modal-grid select, .mov-modal-grid textarea { width: 100%; border: 1px solid var(--cor-borda); border-radius: 7px; outline: 0; background: white; color: var(--cor-texto-principal); font: inherit; font-size: 11px; }
+.mov-modal-grid input, .mov-modal-grid select { height: 40px; padding: 0 12px; }
+.mov-modal-grid textarea { min-height: 78px; padding: 11px; resize: vertical; }
+.mov-modal-grid input:focus, .mov-modal-grid select:focus, .mov-modal-grid textarea:focus { border-color: var(--cor-primaria); box-shadow: 0 0 0 3px var(--sombra-foco); }
+.mov-modal > footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 18px 24px; border-top: 1px solid var(--cor-borda); }
+.mov-modal > footer > div { display: flex; gap: 10px; }
+.mov-modal footer button, .mov-confirm-overlay button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border-radius: 7px; font-size: 11px; font-weight: 600; cursor: pointer; }
+.mov-delete { border: 1px solid #ffd2cc; background: var(--cor-fundo-vermelho); color: var(--cor-perigo); }
+.mov-cancel { border: 1px solid var(--cor-borda); background: white; color: var(--cor-texto-principal); }
+.mov-save { border: 1px solid var(--cor-primaria); background: var(--cor-primaria); color: white; }
+.mov-confirm-overlay { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; border-radius: 8px; background: rgba(20, 33, 61, 0.55); }
+.mov-confirm-overlay section { width: min(390px, 100%); padding: 26px; border-radius: 8px; background: white; text-align: center; box-shadow: 0 20px 50px var(--sombra-modal); }
+.mov-confirm-overlay section > svg { color: var(--cor-perigo); }
+.mov-confirm-overlay h3 { margin: 12px 0 7px; font-size: 17px; }
+.mov-confirm-overlay p { margin: 0 0 20px; color: var(--cor-texto-secundario); font-size: 11px; }
+.mov-confirm-overlay section > div { display: flex; justify-content: center; gap: 10px; }
+.mov-delete-confirm { border: 1px solid var(--cor-perigo); background: var(--cor-perigo); color: white; }
+
+@media (max-width: 700px) {
+    .mov-modal-overlay { padding: 10px; }
+    .mov-modal { max-height: calc(100vh - 20px); }
+    .mov-modal-grid { grid-template-columns: 1fr; padding: 20px; }
+    .mov-modal-grid label.full { grid-column: auto; }
+    .mov-modal > footer { align-items: stretch; flex-direction: column-reverse; }
+    .mov-modal > footer > div { display: grid; grid-template-columns: 1fr 1fr; }
+    .mov-delete { width: 100%; }
+}

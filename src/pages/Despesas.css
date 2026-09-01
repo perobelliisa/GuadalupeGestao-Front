@@ -1,0 +1,4 @@
+.despesa-value { color: var(--cor-perigo) !important; font-weight: 700; white-space: nowrap; }
+.despesa-status { display: inline-flex; padding: 4px 9px; border-radius: 999px; font-size: 9px; white-space: nowrap; }
+.despesa-status.status-0 { border: 1px solid #f2dfac; background: var(--cor-fundo-amarelo); color: #9a6a00; }
+.despesa-status.status-1 { border: 1px solid var(--cor-borda-verde); background: var(--cor-fundo-verde); color: var(--cor-sucesso); }
