@@ -1,4 +1,5 @@
 // Importa a barra lateral que contém os links de navegação do sistema.
+// Esta página lista usuários, permite editar seus dados e excluir um usuário.
 import Sidebar from "../../components/Sidebar.jsx";
 // Importa o cabeçalho que exibe os dados do usuário atualmente autenticado.
 import Header from "../../components/Header.jsx";

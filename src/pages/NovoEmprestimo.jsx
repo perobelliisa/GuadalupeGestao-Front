@@ -1,7 +1,7 @@
+// Esta página contém o formulário usado para cadastrar um novo empréstimo.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
 import AnexoMovimentacao from "../../components/AnexoMovimentacao.jsx";
-import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
@@ -10,6 +10,7 @@ import "../../components/FormularioMovimentacao.css";
 import "./NovoEmprestimo.css";
 
 export default function NovoEmprestimo({ usuario, apiUrl, onRegistrar, onLogout }) {
+    // Estados usados para controlar o arquivo, projetos, mensagens e botão de salvar.
     const navigate = useNavigate();
     const [arquivo, setArquivo] = useState("");
     const [projetos, setProjetos] = useState([]);
@@ -18,6 +19,7 @@ export default function NovoEmprestimo({ usuario, apiUrl, onRegistrar, onLogout 
     const [erro, setErro] = useState("");
     const [salvando, setSalvando] = useState(false);
 
+    // Busca a lista de projetos quando a página é aberta.
     useEffect(() => {
         const controller = new AbortController();
         async function carregarProjetos() {
@@ -36,6 +38,7 @@ export default function NovoEmprestimo({ usuario, apiUrl, onRegistrar, onLogout 
         return () => controller.abort();
     }, [apiUrl]);
 
+    // Lê os campos preenchidos, prepara o empréstimo e pede para o App salvá-lo.
     async function registrar(event) {
         event.preventDefault();
         const emprestimo = Object.fromEntries(new FormData(event.currentTarget).entries());
@@ -54,8 +57,9 @@ export default function NovoEmprestimo({ usuario, apiUrl, onRegistrar, onLogout 
         }
     }
 
+    // Parte visual do formulário, dividida em dados, devolução e anexo.
     return <div className="app"><Sidebar paginaAtiva="Empréstimos" tipoUsuario={usuario.tipo} onLogout={onLogout}/><div className="main"><Header usuario={usuario}/><main className="entradas-content novo-emprestimo-content"><form className="entrada-form" onSubmit={registrar}>
-        <div className="entradas-titlebar"><div><h1>Novo empréstimo</h1><p>Registre um empréstimo recebido pela Missão</p></div><button className="entradas-primary" type="submit" disabled={salvando}><Save size={16}/> {salvando ? "Registrando..." : "Registrar empréstimo"}</button></div>
+        <div className="entradas-titlebar"><div><h1>Novo empréstimo</h1><p>Registre um empréstimo recebido pela Missão</p></div><button className="entradas-primary" type="submit" disabled={salvando}>{salvando ? "Registrando..." : "Registrar empréstimo"}</button></div>
         {erro && <p className="mov-form-error" role="alert">{erro}</p>}
         <section className="entrada-panel"><h2>Dados do empréstimo</h2><div className="entrada-grid">
             <label className="entrada-field"><span>Origem<b>*</b></span><input name="origem" required /></label>

@@ -1,8 +1,8 @@
+// Esta página contém o formulário usado para cadastrar uma nova entrada.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
 import CampoMovimentacao from "../../components/CampoMovimentacao.jsx";
 import AnexoMovimentacao from "../../components/AnexoMovimentacao.jsx";
-import { Save } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
@@ -25,14 +25,16 @@ export default function NovaEntrada({ usuario, opcoes = {}, onRegistrar, onLogou
 
     async function registrar(event) {
         event.preventDefault();
+        // Lê todos os campos do formulário e monta o objeto que será enviado à API.
         const entrada = Object.fromEntries(new FormData(event.currentTarget).entries());
-        entrada.id_livro_caixa = crypto.randomUUID();
+        // 0 representa uma entrada no banco de dados.
         entrada.tipo = 0;
+        // Inputs sempre devolvem texto; o valor precisa ser convertido em número.
         entrada.valor = Number(String(entrada.valor).replace(",", "."));
         setErro("");
         setSalvando(true);
         try {
-            await onRegistrar?.(entrada);
+            await onRegistrar(entrada);
             navigate("/entradas", { replace: true });
         } catch (error) {
             setErro(error.message);
@@ -48,7 +50,7 @@ export default function NovaEntrada({ usuario, opcoes = {}, onRegistrar, onLogou
                 <Header usuario={usuario} />
                 <main className="entradas-content nova-entrada-content">
                     <form id="nova-entrada-form" onSubmit={registrar} className="entrada-form">
-                        <div className="entradas-titlebar"><div><h1>Nova entrada</h1></div><button className="entradas-primary" type="submit" disabled={salvando}><Save size={16} /> {salvando ? "Registrando..." : "Registrar entrada"}</button></div>
+                        <div className="entradas-titlebar"><div><h1>Nova entrada</h1></div><button className="entradas-primary" type="submit" disabled={salvando}>{salvando ? "Registrando..." : "Registrar entrada"}</button></div>
                         {erro && <p className="mov-form-error" role="alert">{erro}</p>}
                         <section className="entrada-panel"><h2>Identificação</h2><div className="entrada-grid">
                             <label className="entrada-field full"><span>Descrição<b>*</b></span><input name="descricao" required /></label>

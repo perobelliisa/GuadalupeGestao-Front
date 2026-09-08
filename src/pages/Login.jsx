@@ -3,6 +3,7 @@ import css from "./Login.module.css";
 // useState controla mensagens e o estado de envio do formulário.
 import { useState } from "react";
 // useNavigate permite trocar de página depois da autenticação.
+// Esta página recebe e valida os dados de acesso antes de entrar no sistema.
 import { useLocation, useNavigate } from "react-router-dom";
 
 // Recebe a URL central da API e o callback que registra o usuário autenticado.

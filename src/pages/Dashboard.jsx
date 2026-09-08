@@ -1,5 +1,6 @@
 
 // Importa os componentes que formam cada região da dashboard.
+// Esta página é o painel inicial mostrado após o login.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
 import Cards from "../../components/Card.jsx";

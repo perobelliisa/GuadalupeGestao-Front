@@ -1,4 +1,5 @@
 // Importa os componentes compartilhados com a dashboard.
+// Esta página contém o formulário de cadastro de um usuário do sistema.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
 // Importa o ícone exibido no botão principal.

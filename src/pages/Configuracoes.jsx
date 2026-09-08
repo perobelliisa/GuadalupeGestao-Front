@@ -1,3 +1,4 @@
+// Esta página permite visualizar e alterar os dados do usuário conectado.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
 import { Save, UserRound } from "lucide-react";
@@ -6,11 +7,13 @@ import "./Dashboard.css";
 import "./Configuracoes.css";
 
 export default function Configuracoes({ usuario, apiUrl, onUsuarioAtualizado, onLogout }) {
+    // Estados que guardam os dados do formulário e o que a tela está fazendo.
     const [dados, setDados] = useState(null);
     const [carregando, setCarregando] = useState(true);
     const [salvando, setSalvando] = useState(false);
     const [mensagem, setMensagem] = useState(null);
 
+    // Este bloco roda ao abrir a página para buscar os dados atuais da conta.
     useEffect(() => {
         const controller = new AbortController();
         async function carregarConta() {
@@ -31,10 +34,12 @@ export default function Configuracoes({ usuario, apiUrl, onUsuarioAtualizado, on
         return () => controller.abort();
     }, [apiUrl, usuario.id]);
 
+    // Atualiza apenas o campo que o usuário acabou de alterar.
     function alterar(campo, valor) {
         setDados((atual) => ({ ...atual, [campo]: valor }));
     }
 
+    // Impede o recarregamento do formulário e envia os dados alterados para a API.
     async function salvar(event) {
         event.preventDefault();
         setSalvando(true);
@@ -58,6 +63,7 @@ export default function Configuracoes({ usuario, apiUrl, onUsuarioAtualizado, on
         }
     }
 
+    // Parte visual: menu lateral, cabeçalho e formulário de configurações.
     return <div className="app"><Sidebar paginaAtiva="Configurações" tipoUsuario={usuario.tipo} onLogout={onLogout}/><div className="main"><Header usuario={usuario}/><main className="configuracoes-content">
         <form onSubmit={salvar}>
             <div className="configuracoes-title"><div><h1>Configurações</h1><p>Gerencie os dados da conta autenticada</p></div><button type="submit" disabled={!dados || salvando}><Save size={16}/>{salvando ? "Salvando..." : "Salvar alterações"}</button></div>

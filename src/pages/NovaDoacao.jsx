@@ -1,8 +1,8 @@
+// Esta página contém o formulário usado para cadastrar uma nova doação.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
 import CampoMovimentacao from "../../components/CampoMovimentacao.jsx";
 import AnexoMovimentacao from "../../components/AnexoMovimentacao.jsx";
-import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
@@ -11,6 +11,7 @@ import "../../components/FormularioMovimentacao.css";
 import "./NovaDoacao.css";
 
 export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, onLogout }) {
+    // Estados usados para controlar o arquivo, projetos, mensagens e botão de salvar.
     const navigate = useNavigate();
     const [arquivo, setArquivo] = useState("");
     const [projetos, setProjetos] = useState([]);
@@ -19,6 +20,7 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
     const [erro, setErro] = useState("");
     const [salvando, setSalvando] = useState(false);
 
+    // Busca os projetos para preencher o campo Projeto quando a página abre.
     useEffect(() => {
         const controller = new AbortController();
         async function carregarProjetos() {
@@ -37,17 +39,21 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
         return () => controller.abort();
     }, [apiUrl]);
 
+    // Lê o formulário, prepara a doação e pede para o App salvá-la.
     async function registrar(event) {
         event.preventDefault();
+        // Lê os campos preenchidos pelo usuário.
         const doacao = Object.fromEntries(new FormData(event.currentTarget).entries());
+        // Campos vazios continuam vazios; os preenchidos viram números.
         doacao.valor = doacao.valor === "" ? "" : Number(doacao.valor);
         doacao.quantidade = doacao.quantidade === "" ? "" : Number(doacao.quantidade);
         doacao.tipo = Number(doacao.tipo);
+        // Guarda o nome do projeto para atualizar a tela logo após salvar.
         doacao.projeto_nome = projetos.find((item) => String(item.id_projeto) === String(doacao.id_projeto))?.nome || "";
         setErro("");
         setSalvando(true);
         try {
-            await onRegistrar?.(doacao);
+            await onRegistrar(doacao);
             navigate("/doacoes", { replace: true });
         } catch (error) {
             setErro(error.message);
@@ -56,8 +62,9 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
         }
     }
 
+    // Parte visual do formulário, dividida em dados, destino e anexo.
     return <div className="app"><Sidebar paginaAtiva="Doações" tipoUsuario={usuario.tipo} onLogout={onLogout}/><div className="main"><Header usuario={usuario}/><main className="entradas-content nova-doacao-content"><form className="entrada-form" onSubmit={registrar}>
-        <div className="entradas-titlebar"><div><h1>Nova doação</h1><p>Registre uma nova contribuição recebida pela Missão</p></div><button className="entradas-primary" type="submit" disabled={salvando}><Save size={16}/> {salvando ? "Registrando..." : "Registrar doação"}</button></div>
+        <div className="entradas-titlebar"><div><h1>Nova doação</h1><p>Registre uma nova contribuição recebida pela Missão</p></div><button className="entradas-primary" type="submit" disabled={salvando}>{salvando ? "Registrando..." : "Registrar doação"}</button></div>
         {erro && <p className="mov-form-error" role="alert">{erro}</p>}
         <section className="entrada-panel"><h2>Dados da doação</h2><div className="entrada-grid">
             <label className="entrada-field"><span>Doador<b>*</b></span><input name="doador" required /></label>
