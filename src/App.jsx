@@ -59,10 +59,6 @@ export default function App({ api }) {
                     fetch(`${api}/emprestimos`, { credentials: "include", signal: controller.signal }),
                     fetch(`${api}/categorias`, { credentials: "include", signal: controller.signal })
                 ]);
-                if (respostas.some((resposta) => resposta.status === 401 || resposta.status === 403)) {
-                    encerrarSessao();
-                    return;
-                }
                 const [dadosLivro, dadosDoacoes, dadosEmprestimos, dadosCategorias] = await Promise.all(
                     respostas.map((resposta) => resposta.json().catch(() => ({})))
                 );

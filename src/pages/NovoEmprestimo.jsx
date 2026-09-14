@@ -18,6 +18,12 @@ export default function NovoEmprestimo({ usuario, apiUrl, onRegistrar, onLogout 
     const [erroProjetos, setErroProjetos] = useState("");
     const [erro, setErro] = useState("");
     const [salvando, setSalvando] = useState(false);
+    const [formaPagamento, setFormaPagamento] = useState("");
+    const [valor, setValor] = useState("");
+    const [parcelas, setParcelas] = useState("");
+    const valorDaParcela = Number(valor) > 0 && Number(parcelas) > 1
+        ? Number(valor / Number(parcelas)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+        : "";
 
     // Busca a lista de projetos quando a página é aberta.
     useEffect(() => {
@@ -42,8 +48,9 @@ export default function NovoEmprestimo({ usuario, apiUrl, onRegistrar, onLogout 
     async function registrar(event) {
         event.preventDefault();
         const emprestimo = Object.fromEntries(new FormData(event.currentTarget).entries());
-        emprestimo.valor = emprestimo.valor === "" ? "" : Number(emprestimo.valor);
-        emprestimo.parcelas = emprestimo.parcelas === "" ? "" : Number(emprestimo.parcelas);
+        emprestimo.valor = Number(emprestimo.valor);
+        // À vista é salva como uma única parcela; em parcelado usa a quantidade escolhida.
+        emprestimo.parcelas = formaPagamento === "avista" ? 1 : Number(parcelas);
         emprestimo.projeto_nome = projetos.find((item) => String(item.id_projeto) === String(emprestimo.id_projeto))?.nome || "";
         setErro("");
         setSalvando(true);
@@ -63,15 +70,15 @@ export default function NovoEmprestimo({ usuario, apiUrl, onRegistrar, onLogout 
         {erro && <p className="mov-form-error" role="alert">{erro}</p>}
         <section className="entrada-panel"><h2>Dados do empréstimo</h2><div className="entrada-grid">
             <label className="entrada-field"><span>Origem<b>*</b></span><input name="origem" required /></label>
-            <label className="entrada-field"><span>Valor<b>*</b></span><input name="valor" type="number" min="0.01" step="0.01" required /></label>
+            <label className="entrada-field"><span>Valor<b>*</b></span><input name="valor" type="number" min="0.01" step="0.01" value={valor} onChange={(event) => setValor(event.target.value)} required /></label>
             <label className="entrada-field"><span>Data<b>*</b></span><input name="dia" type="date" required /></label>
             <label className="entrada-field"><span>Projeto<b>*</b></span><select name="id_projeto" defaultValue="" required disabled={carregandoProjetos || Boolean(erroProjetos)}><option value="">{carregandoProjetos ? "Carregando projetos..." : erroProjetos || (projetos.length ? "Selecione" : "Nenhum projeto cadastrado")}</option>{projetos.map((item) => <option key={item.id_projeto} value={item.id_projeto}>{item.nome}</option>)}</select></label>
             <label className="entrada-field full"><span>Finalidade<b>*</b></span><input name="finalidade" required /></label>
         </div></section>
         <section className="entrada-panel"><h2>Devolução</h2><div className="entrada-grid">
-            <label className="entrada-field"><span>Data de vencimento<b>*</b></span><input name="devolucao" type="date" required /></label>
-            <label className="entrada-field"><span>Parcelas<b>*</b></span><input name="parcelas" type="number" min="1" step="1" required /></label>
-            <label className="entrada-field"><span>Validade</span><input name="validade" type="date" /></label>
+            <label className="entrada-field"><span>Data prevista de devolução<b>*</b></span><input name="devolucao" type="date" required /></label>
+            <label className="entrada-field"><span>Forma de pagamento<b>*</b></span><select value={formaPagamento} onChange={(event) => setFormaPagamento(event.target.value)} required><option value="" disabled>Selecione</option><option value="avista">À vista</option><option value="parcelado">Parcelado</option></select></label>
+            {formaPagamento === "parcelado" && <><label className="entrada-field"><span>Número de parcelas<b>*</b></span><select value={parcelas} onChange={(event) => setParcelas(event.target.value)} required><option value="" disabled>Selecione</option>{Array.from({ length: 11 }, (_, indice) => <option key={indice + 2} value={indice + 2}>{indice + 2}x</option>)}</select></label>{valorDaParcela && <label className="entrada-field"><span>Valor de cada parcela</span><input value={valorDaParcela} readOnly /></label>}</>}
         </div></section>
         <section className="entrada-panel"><h2>Comprovantes e anexos</h2><p>Anexe documentos relacionados a este registro</p><AnexoMovimentacao arquivo={arquivo} onChange={(event) => setArquivo(event.target.files[0]?.name || "")} /></section>
     </form></main></div></div>;

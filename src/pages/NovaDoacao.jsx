@@ -1,7 +1,6 @@
 // Esta página contém o formulário usado para cadastrar uma nova doação.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
-import CampoMovimentacao from "../../components/CampoMovimentacao.jsx";
 import AnexoMovimentacao from "../../components/AnexoMovimentacao.jsx";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +18,7 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
     const [erroProjetos, setErroProjetos] = useState("");
     const [erro, setErro] = useState("");
     const [salvando, setSalvando] = useState(false);
+    const [tipo, setTipo] = useState("");
 
     // Busca os projetos para preencher o campo Projeto quando a página abre.
     useEffect(() => {
@@ -45,8 +45,8 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
         // Lê os campos preenchidos pelo usuário.
         const doacao = Object.fromEntries(new FormData(event.currentTarget).entries());
         // Campos vazios continuam vazios; os preenchidos viram números.
-        doacao.valor = doacao.valor === "" ? "" : Number(doacao.valor);
-        doacao.quantidade = doacao.quantidade === "" ? "" : Number(doacao.quantidade);
+        doacao.valor = doacao.valor === undefined || doacao.valor === "" ? "" : Number(doacao.valor);
+        doacao.quantidade = doacao.quantidade === undefined || doacao.quantidade === "" ? "" : Number(doacao.quantidade);
         doacao.tipo = Number(doacao.tipo);
         // Guarda o nome do projeto para atualizar a tela logo após salvar.
         doacao.projeto_nome = projetos.find((item) => String(item.id_projeto) === String(doacao.id_projeto))?.nome || "";
@@ -69,9 +69,12 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
         <section className="entrada-panel"><h2>Dados da doação</h2><div className="entrada-grid">
             <label className="entrada-field"><span>Doador<b>*</b></span><input name="doador" required /></label>
             <label className="entrada-field"><span>Data<b>*</b></span><input name="dia" type="date" required /></label>
-            <CampoMovimentacao label="Tipo" name="tipo" opcoes={opcoes.tiposDoacao} inputType="number" required />
-            <label className="entrada-field"><span>Valor</span><input name="valor" type="number" min="0.01" step="0.01" /></label>
-            <label className="entrada-field"><span>Quantidade</span><input name="quantidade" type="number" min="1" step="1" /></label>
+            <label className="entrada-field"><span>Tipo<b>*</b></span><select name="tipo" value={tipo} onChange={(event) => setTipo(event.target.value)} required><option value="" disabled>Selecione</option><option value="0">Dinheiro</option><option value="1">Alimento</option><option value="2">Roupa</option><option value="3">Tecido</option><option value="4">Outro</option></select></label>
+            {(tipo === "0" || tipo === "4") && <label className="entrada-field"><span>Valor<b>*</b></span><input name="valor" type="number" min="0.01" step="0.01" required /></label>}
+            {tipo === "1" && <label className="entrada-field"><span>Kg/L<b>*</b></span><input name="quantidade" type="number" min="0.01" step="0.01" required /></label>}
+            {tipo === "2" && <label className="entrada-field"><span>Quantidade<b>*</b></span><input name="quantidade" type="number" min="1" step="1" required /></label>}
+            {tipo === "3" && <label className="entrada-field"><span>Metros<b>*</b></span><input name="quantidade" type="number" min="0.01" step="0.01" required /></label>}
+            {tipo === "4" && <label className="entrada-field"><span>Quantidade<b>*</b></span><input name="quantidade" type="number" min="1" step="1" required /></label>}
         </div></section>
         <section className="entrada-panel"><h2>Destinação</h2><div className="entrada-grid">
             <label className="entrada-field"><span>Projeto</span><select name="id_projeto" defaultValue="" disabled={carregandoProjetos || Boolean(erroProjetos)}><option value="">{carregandoProjetos ? "Carregando projetos..." : erroProjetos || (projetos.length ? "Sem projeto" : "Nenhum projeto cadastrado")}</option>{projetos.map((item) => <option key={item.id_projeto} value={item.id_projeto}>{item.nome}</option>)}</select></label>

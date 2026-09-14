@@ -46,14 +46,14 @@ export default function Emprestimos({ usuario, apiUrl, emprestimos = [], onAtual
         linhasDaTabela.push(<tr key={emprestimo.id_emprestimo} className="mov-row-clickable" onClick={() => setSelecionado(emprestimo)}>
             <td><strong>{emprestimo.origem || "-"}</strong></td><td>{dinheiro(emprestimo.valor)}</td><td>{dataBrasileira(emprestimo.dia)}</td>
             <td>{emprestimo.projeto_nome || emprestimo.id_projeto || "-"}</td><td>{emprestimo.parcelas || "-"}</td>
-            <td>{dataBrasileira(emprestimo.devolucao)}</td><td>{dataBrasileira(emprestimo.validade)}</td><td>{emprestimo.finalidade || "-"}</td>
+            <td>{dataBrasileira(emprestimo.devolucao)}</td><td>{emprestimo.finalidade || "-"}</td>
         </tr>);
     }
 
     return <div className="app"><Sidebar paginaAtiva="Empréstimos" tipoUsuario={usuario.tipo} onLogout={onLogout}/><div className="main"><Header usuario={usuario}/><main className="entradas-content">
         <div className="entradas-titlebar"><div><h1>Empréstimos</h1><p>Empréstimos recebidos para financiar as atividades da Missão</p></div><button className="entradas-primary" type="button" onClick={() => navigate("/emprestimos/novo")}>+ Novo empréstimo</button></div>
         <section className="entradas-summary"><article><span className="summary-icon blue">R$</span><div><small>Total emprestado</small><strong>{dinheiro(total)}</strong></div></article><article><span className="summary-icon teal">#</span><div><small>Com parcelas informadas</small><strong>{comParcelas}</strong></div></article><article><span className="summary-icon loan">✓</span><div><small>Devoluções futuras</small><strong>{devolucoesFuturas}</strong></div></article></section>
-        <section className="emprestimos-table-card">{emprestimos.length === 0 ? <div className="entradas-empty"><strong>Nenhum empréstimo registrado</strong><span>Os empréstimos cadastrados aparecerão aqui.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>ORIGEM</th><th>VALOR</th><th>DATA</th><th>PROJETO</th><th>PARCELAS</th><th>DEVOLUÇÃO</th><th>VALIDADE</th><th>FINALIDADE</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
+        <section className="emprestimos-table-card">{emprestimos.length === 0 ? <div className="entradas-empty"><strong>Nenhum empréstimo registrado</strong><span>Os empréstimos cadastrados aparecerão aqui.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>ORIGEM</th><th>VALOR</th><th>DATA</th><th>PROJETO</th><th>PARCELAS</th><th>DEVOLUÇÃO PREVISTA</th><th>FINALIDADE</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
         {selecionado && <EditorCadastroFinanceiro item={selecionado} tipo="Empréstimo" apiUrl={apiUrl} onFechar={() => setSelecionado(null)} onSalvar={onAtualizar} />}
     </main></div></div>;
 }
