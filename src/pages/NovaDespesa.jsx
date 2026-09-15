@@ -14,7 +14,7 @@ const FORMAS_PAGAMENTO = [{ valor: "0", label: "Pix" }, { valor: "1", label: "Cr
 const RECORRENCIAS = [{ valor: "0", label: "Não recorrente" }, { valor: "1", label: "Todo dia" }, { valor: "2", label: "A cada 15 dias" }, { valor: "3", label: "A cada 30 dias" }];
 const STATUS = [{ valor: "0", label: "Não pago" }, { valor: "1", label: "Pago" }];
 
-export default function NovaDespesa({ usuario, opcoes = {}, onRegistrar, onLogout }) {
+export default function NovaDespesa({ usuario, onRegistrar, onLogout }) {
     const navigate = useNavigate();
     const [arquivo, setArquivo] = useState("");
     const [erro, setErro] = useState("");
@@ -25,7 +25,6 @@ export default function NovaDespesa({ usuario, opcoes = {}, onRegistrar, onLogou
         // Lê todos os campos do formulário e monta o objeto que será enviado à API.
         const despesa = Object.fromEntries(new FormData(event.currentTarget).entries());
         // 1 representa uma despesa no banco de dados.
-        despesa.tipo = 1;
         // Inputs sempre devolvem texto; o valor precisa ser convertido em número.
         despesa.valor = Number(String(despesa.valor).replace(",", "."));
         setErro("");
@@ -47,11 +46,10 @@ export default function NovaDespesa({ usuario, opcoes = {}, onRegistrar, onLogou
             <label className="entrada-field full"><span>Descrição<b>*</b></span><input name="descricao" required /></label>
             <label className="entrada-field"><span>Valor<b>*</b></span><input name="valor" type="number" min="0.01" step="0.01" required /></label>
             <label className="entrada-field"><span>Data<b>*</b></span><input name="dia" type="date" required /></label>
-            <CampoMovimentacao label="Categoria" name="id_categoria" opcoes={opcoes.categorias} inputType="number" required />
-            <label className="entrada-field"><span>Conta<b>*</b></span><input name="conta" type="number" required /></label>
+            <label className="entrada-field"><span>Conta bancária ou caixa<b>*</b></span><input name="conta" type="number" min="0" placeholder="Ex.: número da conta" required /></label>
         </div></section>
         <section className="entrada-panel"><h2>Pagamento</h2><div className="entrada-grid">
-            <label className="entrada-field"><span>Origem<b>*</b></span><input name="origem" required /></label>
+            <label className="entrada-field"><span>De onde veio o pagamento?<b>*</b></span><input name="origem" placeholder="Ex.: caixa, banco ou transferência" required /></label>
             <label className="entrada-field"><span>Fornecedor</span><input name="fornecedor" /></label>
             <CampoMovimentacao label="Forma de pagamento" name="forma_pagamento" opcoes={FORMAS_PAGAMENTO} />
             <CampoMovimentacao label="Status" name="status" opcoes={STATUS} />

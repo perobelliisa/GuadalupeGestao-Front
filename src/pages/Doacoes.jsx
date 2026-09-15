@@ -19,6 +19,15 @@ function dataBrasileira(data) {
     return partes[2] + "/" + partes[1] + "/" + partes[0];
 }
 
+function nomeTipoDoacao(tipo) {
+    if (Number(tipo) === 0) return "Dinheiro";
+    if (Number(tipo) === 1) return "Alimento";
+    if (Number(tipo) === 2) return "Roupa";
+    if (Number(tipo) === 3) return "Tecido";
+    if (Number(tipo) === 4) return "Outro";
+    return "-";
+}
+
 export default function Doacoes({ usuario, apiUrl, doacoes = [], onAtualizar, onLogout }) {
     // Estados dos dois filtros e da doação que o usuário escolheu editar.
     const navigate = useNavigate();
@@ -62,13 +71,13 @@ export default function Doacoes({ usuario, apiUrl, doacoes = [], onAtualizar, on
 
     // Cria as opções dos campos de filtro e as linhas visuais da tabela.
     const opcoesDeTipo = [];
-    for (let posicao = 0; posicao < tipos.length; posicao += 1) opcoesDeTipo.push(<option key={tipos[posicao]} value={tipos[posicao]}>{tipos[posicao]}</option>);
+    for (let posicao = 0; posicao < tipos.length; posicao += 1) opcoesDeTipo.push(<option key={tipos[posicao]} value={tipos[posicao]}>{nomeTipoDoacao(tipos[posicao])}</option>);
     const opcoesDeProjeto = [];
     for (let posicao = 0; posicao < projetos.length; posicao += 1) opcoesDeProjeto.push(<option key={projetos[posicao].id} value={projetos[posicao].id}>{projetos[posicao].nome}</option>);
     const linhasDaTabela = [];
     for (let posicao = 0; posicao < doacoesMostradas.length; posicao += 1) {
         const doacao = doacoesMostradas[posicao];
-        linhasDaTabela.push(<tr key={doacao.id_doacao} className="mov-row-clickable" onClick={() => setSelecionada(doacao)}><td><strong>{doacao.doador || "-"}</strong></td><td>{dataBrasileira(doacao.dia)}</td><td>{doacao.tipo}</td><td>{dinheiro(doacao.valor)}</td><td>{doacao.quantidade || "-"}</td><td>{doacao.projeto_nome || doacao.id_projeto || "-"}</td><td>{doacao.descricao || "-"}</td></tr>);
+        linhasDaTabela.push(<tr key={doacao.id_doacao} className="mov-row-clickable" onClick={() => setSelecionada(doacao)}><td><strong>{doacao.doador || "-"}</strong></td><td>{dataBrasileira(doacao.dia)}</td><td>{nomeTipoDoacao(doacao.tipo)}</td><td>{dinheiro(doacao.valor)}</td><td>{doacao.quantidade || "-"}</td><td>{doacao.projeto_nome || doacao.id_projeto || "-"}</td><td>{doacao.descricao || "-"}</td></tr>);
     }
 
     // Parte visual da página: título, resumo, filtros, tabela e edição condicional.

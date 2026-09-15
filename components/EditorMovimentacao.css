@@ -9,6 +9,8 @@
 .mov-modal-grid label { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
 .mov-modal-grid label.full { grid-column: 1 / -1; }
 .mov-modal-grid label > span { font-size: 10px; font-weight: 500; }
+.mov-anexo-field { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.mov-anexo-field > span { font-size: 10px; font-weight: 500; }
 .mov-modal-grid input, .mov-modal-grid select, .mov-modal-grid textarea { width: 100%; border: 1px solid var(--cor-borda); border-radius: 7px; outline: 0; background: white; color: var(--cor-texto-principal); font: inherit; font-size: 11px; }
 .mov-modal-grid input, .mov-modal-grid select { height: 40px; padding: 0 12px; }
 .mov-modal-grid textarea { min-height: 78px; padding: 11px; resize: vertical; }

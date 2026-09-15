@@ -12,9 +12,13 @@
 .entrada-field input, .entrada-field select { height: 40px; padding: 0 12px; }
 .entrada-field textarea { min-height: 82px; padding: 12px; resize: vertical; }
 .entrada-field input:focus, .entrada-field select:focus, .entrada-field textarea:focus { border-color: var(--cor-primaria); box-shadow: 0 0 0 3px var(--sombra-foco); }
-.entrada-upload { min-height: 112px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 7px; border: 1px dashed #cdd6e5; border-radius: 7px; background: #f8faff; color: var(--cor-texto-suave); cursor: pointer; }
+.entrada-field .entrada-campo-calculado { background: #f5f7fb; color: var(--cor-texto-secundario); cursor: default; }
+.entrada-upload { min-height: 112px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 7px; border: 1px dashed #cdd6e5; border-radius: 7px; background: #f8faff; color: var(--cor-texto-suave); cursor: pointer; overflow: hidden; transition: border-color 0.2s, background 0.2s; }
+.entrada-upload:hover { border-color: var(--cor-primaria); background: #f2f6ff; }
 .entrada-upload strong { color: var(--cor-texto-principal); font-size: 10px; font-weight: 500; }
 .entrada-upload span { font-size: 9px; }
+.entrada-upload-button { padding: 8px 13px; border-radius: 6px; background: var(--cor-primaria); color: white; font-size: 10px !important; font-weight: 600; }
+.entrada-upload-preview { width: 100%; max-height: 150px; object-fit: contain; border-radius: 5px; }
 .entrada-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .entrada-observacoes { margin-top: 18px; }
 .mov-form-error { margin: 0; padding: 11px 14px; border: 1px solid #ffd2cc; border-radius: 7px; background: var(--cor-fundo-vermelho); color: var(--cor-erro-texto); font-size: 11px; text-align: center; }

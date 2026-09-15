@@ -1,1 +1,8 @@
 .novo-emprestimo-content { max-width: 1120px; }
+.emprestimo-confirmacao { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 20px; background: rgba(20, 33, 61, 0.55); }
+.emprestimo-confirmacao > div { width: min(430px, 100%); padding: 26px; border-radius: 10px; background: white; box-shadow: 0 20px 50px rgba(20, 33, 61, 0.25); }
+.emprestimo-confirmacao h2 { margin: 0 0 10px; color: var(--cor-texto-principal); font-size: 18px; }
+.emprestimo-confirmacao p { margin: 0 0 22px; color: var(--cor-texto-secundario); font-size: 12px; line-height: 1.5; }
+.emprestimo-confirmacao > div > div { display: flex; justify-content: flex-end; gap: 10px; }
+.emprestimo-confirmacao button { min-height: 38px; padding: 0 15px; border: 1px solid var(--cor-borda); border-radius: 7px; background: white; color: var(--cor-texto-principal); font-size: 11px; font-weight: 600; cursor: pointer; }
+.emprestimo-confirmacao button:last-child { border-color: var(--cor-primaria); background: var(--cor-primaria); color: white; }

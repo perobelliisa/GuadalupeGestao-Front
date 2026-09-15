@@ -19,6 +19,12 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
     const [erro, setErro] = useState("");
     const [salvando, setSalvando] = useState(false);
     const [tipo, setTipo] = useState("");
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate() - 1);
+    const anoOntem = ontem.getFullYear();
+    const mesOntem = String(ontem.getMonth() + 1).padStart(2, "0");
+    const diaOntem = String(ontem.getDate()).padStart(2, "0");
+    const dataMaxima = `${anoOntem}-${mesOntem}-${diaOntem}`;
 
     // Busca os projetos para preencher o campo Projeto quando a página abre.
     useEffect(() => {
@@ -68,7 +74,7 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
         {erro && <p className="mov-form-error" role="alert">{erro}</p>}
         <section className="entrada-panel"><h2>Dados da doação</h2><div className="entrada-grid">
             <label className="entrada-field"><span>Doador<b>*</b></span><input name="doador" required /></label>
-            <label className="entrada-field"><span>Data<b>*</b></span><input name="dia" type="date" required /></label>
+            <label className="entrada-field"><span>Data<b>*</b></span><input name="dia" type="date" max={dataMaxima} required /></label>
             <label className="entrada-field"><span>Tipo<b>*</b></span><select name="tipo" value={tipo} onChange={(event) => setTipo(event.target.value)} required><option value="" disabled>Selecione</option><option value="0">Dinheiro</option><option value="1">Alimento</option><option value="2">Roupa</option><option value="3">Tecido</option><option value="4">Outro</option></select></label>
             {(tipo === "0" || tipo === "4") && <label className="entrada-field"><span>Valor<b>*</b></span><input name="valor" type="number" min="0.01" step="0.01" required /></label>}
             {tipo === "1" && <label className="entrada-field"><span>Kg/L<b>*</b></span><input name="quantidade" type="number" min="0.01" step="0.01" required /></label>}

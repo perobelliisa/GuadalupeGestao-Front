@@ -26,7 +26,7 @@ function formaDePagamento(codigo) {
     return "-";
 }
 
-export default function Despesas({ usuario, apiUrl, despesas = [], categorias = [], onAtualizar, onLogout }) {
+export default function Despesas({ usuario, apiUrl, despesas = [], onAtualizar, onLogout }) {
     // Guarda a despesa clicada para mostrar a tela de edição.
     const navigate = useNavigate();
     const [selecionada, setSelecionada] = useState(null);
@@ -50,7 +50,7 @@ export default function Despesas({ usuario, apiUrl, despesas = [], categorias = 
         const status = String(despesa.status) === "1" ? "Pago" : "Não pago";
         linhasDaTabela.push(<tr key={despesa.id_livro_caixa} className="mov-row-clickable" onClick={() => setSelecionada(despesa)}>
             <td>{dataBrasileira(despesa.dia)}</td><td><strong>{despesa.descricao || "-"}</strong></td><td>{despesa.fornecedor || "-"}</td>
-            <td>{despesa.id_categoria || "-"}</td><td>{despesa.conta || "-"}</td><td>{dataBrasileira(despesa.vencimento)}</td>
+            <td>{despesa.conta || "-"}</td><td>{dataBrasileira(despesa.vencimento)}</td>
             <td className="despesa-value">- {dinheiro(despesa.valor)}</td><td>{formaDePagamento(despesa.forma_pagamento)}</td><td>{status}</td>
         </tr>);
     }
@@ -59,6 +59,6 @@ export default function Despesas({ usuario, apiUrl, despesas = [], categorias = 
     return <div className="app"><Sidebar paginaAtiva="Despesas" tipoUsuario={usuario.tipo} onLogout={onLogout} /><div className="main"><Header usuario={usuario} /><main className="entradas-content">
         <div className="entradas-titlebar"><div><h1>Despesas</h1><p>Todos os pagamentos registrados pela Missão</p></div><button type="button" className="entradas-primary" onClick={() => navigate("/despesas/nova")}>+ Nova despesa</button></div>
         <section className="entradas-summary"><article><span className="summary-icon blue">R$</span><div><small>Total no período</small><strong>{dinheiro(total)}</strong></div></article><article><span className="summary-icon teal">-</span><div><small>Despesas registradas</small><strong>{despesas.length}</strong></div></article><article><span className="summary-icon green">✓</span><div><small>Pagas</small><strong>{pagas}</strong></div></article></section>
-        <section className="entradas-table-card">{despesasMostradas.length === 0 ? <div className="entradas-empty"><strong>Nenhuma despesa encontrada</strong><span>As despesas aparecerão aqui após o primeiro registro.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>FORNECEDOR</th><th>CATEGORIA</th><th>CONTA</th><th>VENCIMENTO</th><th>VALOR</th><th>FORMA</th><th>STATUS</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
-    </main></div>{selecionada && <EditorMovimentacao item={selecionada} tipo="Despesa" apiUrl={apiUrl} categorias={categorias} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}</div>;
+        <section className="entradas-table-card">{despesasMostradas.length === 0 ? <div className="entradas-empty"><strong>Nenhuma despesa encontrada</strong><span>As despesas aparecerão aqui após o primeiro registro.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>FORNECEDOR</th><th>LOCAL DO VALOR</th><th>VENCIMENTO</th><th>VALOR</th><th>FORMA</th><th>STATUS</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
+    </main></div>{selecionada && <EditorMovimentacao item={selecionada} tipo="Despesa" apiUrl={apiUrl} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}</div>;
 }

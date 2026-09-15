@@ -2,9 +2,7 @@
 // Os comentários explicam blocos de código; cada bloco executa uma tarefa completa.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx"; // Mostra o cabeçalho com os dados do usuário.
-import { useState } from "react"; // Permite guardar a informação do empréstimo selecionado.
 import { useNavigate } from "react-router-dom"; // Permite trocar de página ao clicar no botão.
-import EditorCadastroFinanceiro from "../../components/EditorCadastroFinanceiro.jsx"; // Janela usada para editar um empréstimo.
 import "./Dashboard.css";
 import "../../components/Movimentacoes.css";
 import "./Emprestimos.css";
@@ -22,9 +20,8 @@ function dataBrasileira(data) {
     return partes[2] + "/" + partes[1] + "/" + partes[0]; // Junta os pedaços na ordem brasileira.
 }
 
-export default function Emprestimos({ usuario, apiUrl, emprestimos = [], onAtualizar, onLogout }) {
+export default function Emprestimos({ usuario, emprestimos = [], onLogout }) {
     const navigate = useNavigate(); // Cria a função que muda a rota da aplicação.
-    const [selecionado, setSelecionado] = useState(null); // Guarda o empréstimo clicado ou null quando nenhum está aberto.
     let total = 0; // Começa a soma de todos os valores em zero.
     let comParcelas = 0; // Conta empréstimos que possuem parcelas.
     let devolucoesFuturas = 0; // Conta devoluções que ainda não passaram.
@@ -41,9 +38,8 @@ export default function Emprestimos({ usuario, apiUrl, emprestimos = [], onAtual
             if (dataDevolucao >= hoje) devolucoesFuturas += 1; // Só conta se a devolução for hoje ou depois.
         }
 
-        // Cria uma linha visual da tabela e a adiciona na lista de linhas.
-        // Ao clicar na linha, o empréstimo atual é guardado para abrir a edição.
-        linhasDaTabela.push(<tr key={emprestimo.id_emprestimo} className="mov-row-clickable" onClick={() => setSelecionado(emprestimo)}>
+        // Cria uma linha visual da tabela sem permitir edição.
+        linhasDaTabela.push(<tr key={emprestimo.id_emprestimo}>
             <td><strong>{emprestimo.origem || "-"}</strong></td><td>{dinheiro(emprestimo.valor)}</td><td>{dataBrasileira(emprestimo.dia)}</td>
             <td>{emprestimo.projeto_nome || emprestimo.id_projeto || "-"}</td><td>{emprestimo.parcelas || "-"}</td>
             <td>{dataBrasileira(emprestimo.devolucao)}</td><td>{emprestimo.finalidade || "-"}</td>
@@ -54,6 +50,5 @@ export default function Emprestimos({ usuario, apiUrl, emprestimos = [], onAtual
         <div className="entradas-titlebar"><div><h1>Empréstimos</h1><p>Empréstimos recebidos para financiar as atividades da Missão</p></div><button className="entradas-primary" type="button" onClick={() => navigate("/emprestimos/novo")}>+ Novo empréstimo</button></div>
         <section className="entradas-summary"><article><span className="summary-icon blue">R$</span><div><small>Total emprestado</small><strong>{dinheiro(total)}</strong></div></article><article><span className="summary-icon teal">#</span><div><small>Com parcelas informadas</small><strong>{comParcelas}</strong></div></article><article><span className="summary-icon loan">✓</span><div><small>Devoluções futuras</small><strong>{devolucoesFuturas}</strong></div></article></section>
         <section className="emprestimos-table-card">{emprestimos.length === 0 ? <div className="entradas-empty"><strong>Nenhum empréstimo registrado</strong><span>Os empréstimos cadastrados aparecerão aqui.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>ORIGEM</th><th>VALOR</th><th>DATA</th><th>PROJETO</th><th>PARCELAS</th><th>DEVOLUÇÃO PREVISTA</th><th>FINALIDADE</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
-        {selecionado && <EditorCadastroFinanceiro item={selecionado} tipo="Empréstimo" apiUrl={apiUrl} onFechar={() => setSelecionado(null)} onSalvar={onAtualizar} />}
     </main></div></div>;
 }

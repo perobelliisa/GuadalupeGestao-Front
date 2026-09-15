@@ -1,6 +1,6 @@
 import "./FormularioMovimentacao.css";
 
-export default function CampoMovimentacao({ label, name, opcoes = [], required = false, inputType = "text" }) {
+export default function CampoMovimentacao({ label, name, opcoes = [], required = false, inputType = "text", placeholder }) {
     return (
         <label className="entrada-field">
             <span>{label}{required && <b>*</b>}</span>
@@ -14,7 +14,7 @@ export default function CampoMovimentacao({ label, name, opcoes = [], required =
                     ))}
                 </select>
             ) : (
-                <input name={name} type={inputType} required={required} placeholder={`Informe ${label.toLocaleLowerCase("pt-BR")}`} />
+                <input name={name} type={inputType} required={required} placeholder={placeholder || `Informe ${label.toLocaleLowerCase("pt-BR")}`} />
             )}
         </label>
     );
