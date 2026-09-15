@@ -9,6 +9,7 @@ import "../../components/Movimentacoes.css";
 import "../../components/FormularioMovimentacao.css";
 import "./NovaDoacao.css";
 
+// Reúne os dados necessários para registrar uma nova doação.
 export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, onLogout }) {
     // Estados usados para controlar o arquivo, projetos, mensagens e botão de salvar.
     const navigate = useNavigate();

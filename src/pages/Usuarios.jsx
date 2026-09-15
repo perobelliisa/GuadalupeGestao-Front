@@ -112,6 +112,7 @@ function formatarProjetosPermitidos(item) {
 
 // Componente principal responsável por carregar e apresentar os usuários cadastrados.
 // A propriedade usuario contém a conta autenticada e apiUrl contém o endereço central da API.
+// Lista contas, controla filtros e administra edição e exclusão de usuários.
 export default function Usuarios({ usuario, apiUrl, onSessaoInvalida, onLogout }) {
     // Cria a função usada para navegar até o formulário de novo usuário.
     const navigate = useNavigate();

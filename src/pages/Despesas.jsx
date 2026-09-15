@@ -8,25 +8,43 @@ import "./Dashboard.css";
 import "../../components/Movimentacoes.css";
 import "./Despesas.css";
 
+// Formata valores monetários para o padrão visual usado nas tabelas.
 function dinheiro(valor) {
     return "R$ " + Number(valor || 0).toFixed(2).replace(".", ",");
 }
 
+// Converte a data recebida da API para o formato usado no Brasil.
 function dataBrasileira(data) {
     if (!data) return "-";
     const partes = data.split("-");
     return partes[2] + "/" + partes[1] + "/" + partes[0];
 }
 
+// Traduz o código numérico da forma de pagamento para um nome legível.
 function formaDePagamento(codigo) {
     if (codigo === 0 || codigo === "0") return "Pix";
     if (codigo === 1 || codigo === "1") return "Crédito";
     if (codigo === 2 || codigo === "2") return "Débito";
     if (codigo === 3 || codigo === "3") return "Boleto";
+    if (codigo === 4 || codigo === "4") return "Parcelamento";
+    if (codigo === 5 || codigo === "5") return "Dinheiro";
     return "-";
 }
 
-export default function Despesas({ usuario, apiUrl, despesas = [], onAtualizar, onLogout }) {
+// Procura o nome da categoria pelo ID retornado pelo banco.
+function nomeDaCategoria(codigo, categorias) {
+    const categoria = categorias.find((opcao) => String(opcao.id ?? opcao.valor) === String(codigo));
+    return categoria?.nome || codigo || "-";
+}
+
+// Mostra a missão geral ou o nome do projeto associado à despesa.
+function localDoValor(conta, projetos) {
+    if (String(conta) === "0") return "Missão Guadalupe";
+    const projeto = projetos.find((item) => String(item.id_projeto) === String(conta));
+    return projeto?.nome || conta || "-";
+}
+
+export default function Despesas({ usuario, apiUrl, despesas = [], categorias = [], projetos = [], origens = [], onAtualizar, onLogout }) {
     // Guarda a despesa clicada para mostrar a tela de edição.
     const navigate = useNavigate();
     const [selecionada, setSelecionada] = useState(null);
@@ -37,8 +55,10 @@ export default function Despesas({ usuario, apiUrl, despesas = [], onAtualizar, 
 
     for (let posicao = 0; posicao < despesas.length; posicao += 1) {
         const despesa = despesas[posicao];
-        total += Number(despesa.valor || 0);
-        if (String(despesa.status) === "1") pagas += 1;
+        if (String(despesa.status) === "1") {
+            total += Number(despesa.valor || 0);
+            pagas += 1;
+        }
 
         despesasMostradas.push(despesa);
     }
@@ -50,7 +70,7 @@ export default function Despesas({ usuario, apiUrl, despesas = [], onAtualizar, 
         const status = String(despesa.status) === "1" ? "Pago" : "Não pago";
         linhasDaTabela.push(<tr key={despesa.id_livro_caixa} className="mov-row-clickable" onClick={() => setSelecionada(despesa)}>
             <td>{dataBrasileira(despesa.dia)}</td><td><strong>{despesa.descricao || "-"}</strong></td><td>{despesa.fornecedor || "-"}</td>
-            <td>{despesa.conta || "-"}</td><td>{dataBrasileira(despesa.vencimento)}</td>
+            <td>{nomeDaCategoria(despesa.id_categoria, categorias)}</td><td>{localDoValor(despesa.conta, projetos)}</td>
             <td className="despesa-value">- {dinheiro(despesa.valor)}</td><td>{formaDePagamento(despesa.forma_pagamento)}</td><td>{status}</td>
         </tr>);
     }
@@ -58,7 +78,7 @@ export default function Despesas({ usuario, apiUrl, despesas = [], onAtualizar, 
     // Parte visual da página: título, resumo, tabela e edição condicional.
     return <div className="app"><Sidebar paginaAtiva="Despesas" tipoUsuario={usuario.tipo} onLogout={onLogout} /><div className="main"><Header usuario={usuario} /><main className="entradas-content">
         <div className="entradas-titlebar"><div><h1>Despesas</h1><p>Todos os pagamentos registrados pela Missão</p></div><button type="button" className="entradas-primary" onClick={() => navigate("/despesas/nova")}>+ Nova despesa</button></div>
-        <section className="entradas-summary"><article><span className="summary-icon blue">R$</span><div><small>Total no período</small><strong>{dinheiro(total)}</strong></div></article><article><span className="summary-icon teal">-</span><div><small>Despesas registradas</small><strong>{despesas.length}</strong></div></article><article><span className="summary-icon green">✓</span><div><small>Pagas</small><strong>{pagas}</strong></div></article></section>
-        <section className="entradas-table-card">{despesasMostradas.length === 0 ? <div className="entradas-empty"><strong>Nenhuma despesa encontrada</strong><span>As despesas aparecerão aqui após o primeiro registro.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>FORNECEDOR</th><th>LOCAL DO VALOR</th><th>VENCIMENTO</th><th>VALOR</th><th>FORMA</th><th>STATUS</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
-    </main></div>{selecionada && <EditorMovimentacao item={selecionada} tipo="Despesa" apiUrl={apiUrl} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}</div>;
+        <section className="entradas-summary"><article><span className="summary-icon blue">R$</span><div><small>Total pago no período</small><strong>{dinheiro(total)}</strong></div></article><article><span className="summary-icon teal">-</span><div><small>Despesas registradas</small><strong>{despesas.length}</strong></div></article><article><span className="summary-icon green">✓</span><div><small>Pagas</small><strong>{pagas}</strong></div></article></section>
+        <section className="entradas-table-card">{despesasMostradas.length === 0 ? <div className="entradas-empty"><strong>Nenhuma despesa encontrada</strong><span>As despesas aparecerão aqui após o primeiro registro.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>FORNECEDOR</th><th>CATEGORIA</th><th>PROJETO / CASA DE MISSÃO</th><th>VALOR</th><th>FORMA</th><th>STATUS</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
+    </main></div>{selecionada && <EditorMovimentacao item={selecionada} tipo="Despesa" apiUrl={apiUrl} categorias={categorias} projetos={projetos} origens={origens} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}</div>;
 }

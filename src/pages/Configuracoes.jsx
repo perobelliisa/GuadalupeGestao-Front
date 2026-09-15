@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import "./Dashboard.css";
 import "./Configuracoes.css";
 
+// Exibe os dados da conta atual e envia alterações para a API.
 export default function Configuracoes({ usuario, apiUrl, onUsuarioAtualizado, onLogout }) {
     // Estados que guardam os dados do formulário e o que a tela está fazendo.
     const [dados, setDados] = useState(null);

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 // Recebe a URL central da API e o callback que registra o usuário autenticado.
+// Controla a autenticação e apresenta a tela inicial do sistema.
 export default function Login({ apiUrl, onLogin }) {
     // Cria a função responsável por navegar entre as rotas.
     const navigate = useNavigate();

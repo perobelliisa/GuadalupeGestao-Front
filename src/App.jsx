@@ -13,6 +13,7 @@ import NovaDoacao from "./pages/NovaDoacao.jsx";
 import Emprestimos from "./pages/Emprestimos.jsx";
 import NovoEmprestimo from "./pages/NovoEmprestimo.jsx";
 import Configuracoes from "./pages/Configuracoes.jsx";
+import CentralProjetos from "./pages/Projetos.jsx";
 import { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
@@ -35,7 +36,23 @@ function carregarUsuario() {
     }
 }
 
+function montarOrigens(entradas, despesas) {
+    const origens = [];
+    const chaves = [];
+    const movimentos = entradas.concat(despesas);
+    for (let posicao = 0; posicao < movimentos.length; posicao += 1) {
+        const origem = String(movimentos[posicao].origem || "").trim();
+        const chave = origem.toLocaleLowerCase("pt-BR");
+        if (origem && !chaves.includes(chave)) {
+            origens.push(origem);
+            chaves.push(chave);
+        }
+    }
+    return origens.sort((primeira, segunda) => primeira.localeCompare(segunda, "pt-BR"));
+}
+
 // Componente raiz que controla autenticação e navegação.
+// Componente raiz: mantém a sessão, carrega os dados e define as rotas.
 export default function App({ api }) {
     // Inicializa o estado lendo a sessão apenas na primeira renderização.
     const [usuario, setUsuario] = useState(carregarUsuario);
@@ -43,7 +60,9 @@ export default function App({ api }) {
     const [despesas, setDespesas] = useState([]);
     const [doacoes, setDoacoes] = useState([]);
     const [emprestimos, setEmprestimos] = useState([]);
+    const [categorias, setCategorias] = useState([]);
     const [projetos, setProjetos] = useState([]);
+    const origens = montarOrigens(entradas, despesas);
     // Autoriza a administração de usuários somente para o tipo zero do banco.
     const usuarioAdministrador = Number(usuario?.tipo) === 0;
 
@@ -57,9 +76,10 @@ export default function App({ api }) {
                     fetch(`${api}/livro-caixa`, { credentials: "include", signal: controller.signal }),
                     fetch(`${api}/doacoes`, { credentials: "include", signal: controller.signal }),
                     fetch(`${api}/emprestimos`, { credentials: "include", signal: controller.signal }),
+                    fetch(`${api}/categorias`, { credentials: "include", signal: controller.signal }),
                     fetch(`${api}/projetos`, { credentials: "include", signal: controller.signal })
                 ]);
-                const [dadosLivro, dadosDoacoes, dadosEmprestimos, dadosProjetos] = await Promise.all(
+                const [dadosLivro, dadosDoacoes, dadosEmprestimos, dadosCategorias, dadosProjetos] = await Promise.all(
                     respostas.map((resposta) => resposta.json().catch(() => ({})))
                 );
                 const movimentacoes = Array.isArray(dadosLivro.movimentacoes) ? dadosLivro.movimentacoes : [];
@@ -72,6 +92,7 @@ export default function App({ api }) {
                 setDespesas(movimentacoes.filter((item) => Number(item.tipo) === 1));
                 setDoacoes(Array.isArray(dadosDoacoes.doacoes) ? dadosDoacoes.doacoes : []);
                 setEmprestimos(Array.isArray(dadosEmprestimos.emprestimos) ? dadosEmprestimos.emprestimos : []);
+                setCategorias(Array.isArray(dadosCategorias.categorias) ? dadosCategorias.categorias : []);
             } catch (error) {
                 if (error.name !== "AbortError") console.error("Erro ao carregar livro-caixa", error);
             }
@@ -118,31 +139,42 @@ export default function App({ api }) {
         return retorno;
     }
 
+    async function atualizarCategorias() {
+        const resposta = await fetch(`${api}/categorias`, { credentials: "include" });
+        const dados = await resposta.json().catch(() => ({}));
+        if (resposta.ok && Array.isArray(dados.categorias)) setCategorias(dados.categorias);
+    }
+
     async function registrarEntrada(entrada) {
         const retorno = await enviarMovimento("/entradas", "POST", entrada);
-        setEntradas((atuais) => [{ ...entrada, id_livro_caixa: retorno.id_livro_caixa, tipo: 0 }, ...atuais]);
+        setEntradas((atuais) => [{ ...entrada, id_categoria: retorno.id_categoria, id_livro_caixa: retorno.id_livro_caixa, tipo: 0 }, ...atuais]);
+        await atualizarCategorias();
     }
 
     async function atualizarEntrada(id, dados) {
-        await enviarMovimento(`/livro-caixa/${id}`, "PUT", dados);
+        const retorno = await enviarMovimento(`/livro-caixa/${id}`, "PUT", dados);
         setEntradas((atuais) => atuais.map((item) => {
             if (item.id_livro_caixa !== id) return item;
             return {
                 ...item,
                 ...dados,
+                id_categoria: retorno.id_categoria ?? item.id_categoria,
                 projeto_nome: projetos.find((projeto) => String(projeto.id_projeto) === String(dados.conta))?.nome || ""
             };
         }));
+        await atualizarCategorias();
     }
 
     async function registrarDespesa(despesa) {
         const retorno = await enviarMovimento("/despesas", "POST", despesa);
-        setDespesas((atuais) => [{ ...despesa, id_livro_caixa: retorno.id_livro_caixa, tipo: 1 }, ...atuais]);
+        setDespesas((atuais) => [{ ...despesa, id_categoria: retorno.id_categoria, id_livro_caixa: retorno.id_livro_caixa, tipo: 1 }, ...atuais]);
+        await atualizarCategorias();
     }
 
     async function atualizarDespesa(id, dados) {
-        await enviarMovimento(`/livro-caixa/${id}`, "PUT", dados);
-        setDespesas((atuais) => atuais.map((item) => item.id_livro_caixa === id ? { ...item, ...dados } : item));
+        const retorno = await enviarMovimento(`/livro-caixa/${id}`, "PUT", dados);
+        setDespesas((atuais) => atuais.map((item) => item.id_livro_caixa === id ? { ...item, ...dados, id_categoria: retorno.id_categoria ?? item.id_categoria } : item));
+        await atualizarCategorias();
     }
 
     function atualizarUsuarioLogado(dados) {
@@ -212,8 +244,10 @@ export default function App({ api }) {
     }
 
     async function atualizarEmprestimo(id, dados) {
-        await enviarCadastro(`/emprestimos/${id}`, dados, "PUT");
-        setEmprestimos((atuais) => atuais.map((item) => item.id_emprestimo === id ? { ...item, ...dados } : item));
+        const retorno = await enviarCadastro(`/emprestimos/${id}`, dados, "PUT");
+        setEmprestimos((atuais) => atuais.map((item) => item.id_emprestimo === id
+            ? { ...item, ...dados, parcelas_pagas: retorno.parcelas_pagas ?? dados.parcelas_pagas ?? item.parcelas_pagas ?? 0 }
+            : item));
     }
 
     async function enviarCadastro(rota, dados, metodo = "POST") {
@@ -258,16 +292,38 @@ export default function App({ api }) {
                 <Route
                     path="/dashboard"
           element={
-            usuario
-              ? <Dashboard usuario={usuario} onLogout={encerrarSessao} />
-              : redirecionarParaLogin
+              usuario
+                ? <Dashboard
+                    usuario={usuario}
+                    entradas={entradas}
+                    despesas={despesas}
+                    doacoes={doacoes}
+                    projetos={projetos}
+                    onLogout={encerrarSessao}
+                  />
+                : redirecionarParaLogin
+                    }
+                />
+                {/* Centraliza os projetos cadastrados e suas movimentações financeiras. */}
+                <Route
+                    path="/projetos"
+                    element={
+                        usuario
+                            ? <CentralProjetos
+                                usuario={usuario}
+                                entradas={entradas}
+                                despesas={despesas}
+                                projetos={projetos}
+                                onLogout={encerrarSessao}
+                            />
+                            : redirecionarParaLogin
                     }
                 />
                 <Route
                     path="/entradas"
                     element={
                         usuario
-                            ? <Entradas usuario={usuario} apiUrl={api} entradas={entradas} projetos={projetos} onAtualizar={atualizarEntrada} onLogout={encerrarSessao} />
+                            ? <Entradas usuario={usuario} apiUrl={api} entradas={entradas} categorias={categorias} projetos={projetos} origens={origens} onAtualizar={atualizarEntrada} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -278,6 +334,8 @@ export default function App({ api }) {
                             ? <NovaEntrada
                                 usuario={usuario}
                                 apiUrl={api}
+                                categorias={categorias}
+                                origens={origens}
                                 onRegistrar={registrarEntrada}
                                 onLogout={encerrarSessao}
                             />
@@ -288,7 +346,7 @@ export default function App({ api }) {
                     path="/despesas"
                     element={
                         usuario
-                            ? <Despesas usuario={usuario} apiUrl={api} despesas={despesas} onAtualizar={atualizarDespesa} onLogout={encerrarSessao} />
+                            ? <Despesas usuario={usuario} apiUrl={api} despesas={despesas} categorias={categorias} projetos={projetos} origens={origens} onAtualizar={atualizarDespesa} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -296,7 +354,7 @@ export default function App({ api }) {
                     path="/despesas/nova"
                     element={
                         usuario
-                            ? <NovaDespesa usuario={usuario} apiUrl={api} onRegistrar={registrarDespesa} onLogout={encerrarSessao} />
+                            ? <NovaDespesa usuario={usuario} apiUrl={api} categorias={categorias} projetos={projetos} origens={origens} onRegistrar={registrarDespesa} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -308,6 +366,7 @@ export default function App({ api }) {
                                 usuario={usuario}
                                 entradas={entradas}
                                 despesas={despesas}
+                                categoriasDisponiveis={categorias}
                                 projetosDisponiveis={projetos}
                                 onLogout={encerrarSessao}
                             />
@@ -334,7 +393,7 @@ export default function App({ api }) {
                     path="/emprestimos"
                     element={
                         usuario
-                            ? <Emprestimos usuario={usuario} apiUrl={api} emprestimos={emprestimos} onAtualizar={atualizarEmprestimo} onLogout={encerrarSessao} />
+                            ? <Emprestimos usuario={usuario} emprestimos={emprestimos} projetos={projetos} onAtualizar={atualizarEmprestimo} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />

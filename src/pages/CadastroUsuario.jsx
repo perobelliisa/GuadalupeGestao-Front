@@ -13,6 +13,7 @@ import "./Dashboard.css";
 import "./CadastroUsuario.css";
 
 // Exibe o formulário e recebe o usuário autenticado e o endereço central da API.
+// Monta o formulário que cria uma nova conta de acesso ao sistema.
 export default function CadastroUsuario({ usuario, apiUrl, onLogout }) {
 
     // Cria a função de navegação entre páginas.

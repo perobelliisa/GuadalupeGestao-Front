@@ -1,23 +1,24 @@
-.entrada-form { display: flex; flex-direction: column; gap: 20px; }
+.entrada-form { display: flex; flex-direction: column; gap: 22px; }
 .entrada-form > .entradas-titlebar { margin-bottom: 4px; }
-.entrada-panel { padding: 24px 22px; border: 1px solid var(--cor-borda); border-radius: 8px; background: white; box-shadow: 0 3px 9px var(--sombra-suave); }
-.entrada-panel h2 { margin: 0 0 20px; font-size: 14px; }
-.entrada-panel > p { margin: -12px 0 20px; color: var(--cor-texto-secundario); font-size: 10px; }
-.entrada-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.entrada-panel { padding: 28px 26px; border: 1px solid var(--cor-borda); border-radius: 14px; background: white; box-shadow: 0 8px 22px var(--sombra-suave); }
+.entrada-panel h2 { margin: 0 0 22px; font-size: 17px; }
+.entrada-panel > p { margin: -12px 0 22px; color: var(--cor-texto-secundario); font-size: 13px; }
+.entrada-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .entrada-field { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
 .entrada-field.full { grid-column: 1 / -1; }
-.entrada-field > span { color: var(--cor-texto-principal); font-size: 10px; font-weight: 500; }
+.entrada-field > span { color: var(--cor-texto-principal); font-size: 13px; font-weight: 600; }
 .entrada-field b { margin-left: 2px; color: var(--cor-perigo); }
-.entrada-field input, .entrada-field select, .entrada-field textarea { width: 100%; border: 1px solid var(--cor-borda); border-radius: 7px; outline: 0; background: white; color: var(--cor-texto-principal); font: inherit; font-size: 11px; }
-.entrada-field input, .entrada-field select { height: 40px; padding: 0 12px; }
-.entrada-field textarea { min-height: 82px; padding: 12px; resize: vertical; }
+.entrada-field input, .entrada-field select, .entrada-field textarea { width: 100%; border: 1px solid var(--cor-borda); border-radius: 9px; outline: 0; background: white; color: var(--cor-texto-principal); font: inherit; font-size: 14px; }
+.entrada-field input, .entrada-field select { height: 46px; padding: 0 13px; }
+.entrada-field textarea { min-height: 100px; padding: 13px; resize: vertical; }
 .entrada-field input:focus, .entrada-field select:focus, .entrada-field textarea:focus { border-color: var(--cor-primaria); box-shadow: 0 0 0 3px var(--sombra-foco); }
+.entrada-field-hint { color: var(--cor-texto-suave); font-size: 12px; line-height: 1.45; }
 .entrada-field .entrada-campo-calculado { background: #f5f7fb; color: var(--cor-texto-secundario); cursor: default; }
-.entrada-upload { min-height: 112px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 7px; border: 1px dashed #cdd6e5; border-radius: 7px; background: #f8faff; color: var(--cor-texto-suave); cursor: pointer; overflow: hidden; transition: border-color 0.2s, background 0.2s; }
+.entrada-upload { min-height: 130px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; border: 1px dashed #cdd6e5; border-radius: 10px; background: #f8faff; color: var(--cor-texto-suave); cursor: pointer; overflow: hidden; transition: border-color 0.2s, background 0.2s; }
 .entrada-upload:hover { border-color: var(--cor-primaria); background: #f2f6ff; }
-.entrada-upload strong { color: var(--cor-texto-principal); font-size: 10px; font-weight: 500; }
-.entrada-upload span { font-size: 9px; }
-.entrada-upload-button { padding: 8px 13px; border-radius: 6px; background: var(--cor-primaria); color: white; font-size: 10px !important; font-weight: 600; }
+.entrada-upload strong { color: var(--cor-texto-principal); font-size: 13px; font-weight: 600; }
+.entrada-upload span { font-size: 12px; }
+.entrada-upload-button { padding: 9px 14px; border-radius: 7px; background: var(--cor-primaria); color: white; font-size: 12px !important; font-weight: 600; }
 .entrada-upload-preview { width: 100%; max-height: 150px; object-fit: contain; border-radius: 5px; }
 .entrada-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .entrada-observacoes { margin-top: 18px; }

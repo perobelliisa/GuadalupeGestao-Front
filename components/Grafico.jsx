@@ -1,3 +1,4 @@
+
 // Importa somente os elementos necessários para construir o gráfico de linhas.
 import {
     ResponsiveContainer,
@@ -11,6 +12,17 @@ import {
 
 // Importa os estilos do gráfico e do estado vazio.
 import "./Grafico.css";
+
+// Formata os valores do gráfico com duas casas decimais no padrão brasileiro.
+function formatarValor(valor) {
+    const numero = Number(valor) || 0;
+    return `R$ ${numero.toFixed(2).replace(".", ",")}`;
+}
+
+// Apresenta nomes legíveis para as séries exibidas no tooltip.
+function nomeDaSerie(nome) {
+    return nome === "despesas" ? "Despesas" : "Entradas";
+}
 
 // Exibe o fluxo financeiro recebido futuramente da API.
 export default function Grafico({ dados }) {
@@ -65,7 +77,12 @@ export default function Grafico({ dados }) {
                                 />
 
                                 {/* Mostra os valores ao posicionar o cursor sobre o gráfico. */}
-                                <Tooltip />
+                                <Tooltip
+                                    formatter={(valor, nome) => [
+                                        formatarValor(valor),
+                                        nomeDaSerie(nome)
+                                    ]}
+                                />
 
                                 {/* Representa a série de entradas retornada pela API. */}
                                 <Line

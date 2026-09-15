@@ -29,6 +29,7 @@ function dataBrasileira(data) {
     return `${dia}/${mes}/${ano}`;
 }
 
+// Monta o formulário e confirma o cadastro de um empréstimo.
 export default function NovoEmprestimo({ usuario, apiUrl, onRegistrar, onLogout }) {
     // Estados usados para controlar o arquivo, projetos, mensagens e botão de salvar.
     const navigate = useNavigate();

@@ -94,7 +94,8 @@ export default function Sidebar({
                 {
                     id: "central-projetos",
                     nome: "Central de Projetos",
-                    icone: "/centralprojetos.png"
+                    icone: "/centralprojetos.png",
+                    rota: "/projetos"
                 },
 
                 // Acesso aos documentos associados aos projetos.

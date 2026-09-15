@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 // Importa a função que cria a raiz de renderização da aplicação no navegador.
 import { createRoot } from "react-dom/client";
 // Importa o componente principal, responsável pelas rotas e pelo estado global.
+// Importa o componente raiz que contém toda a navegação da aplicação.
 import App from "./App.jsx";
 
 // Caminho central da API; o Vite o encaminha ao backend sem perder o cookie da sessao.

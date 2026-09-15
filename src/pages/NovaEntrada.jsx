@@ -2,6 +2,8 @@
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
 import CampoMovimentacao from "../../components/CampoMovimentacao.jsx";
+import CategoriaMovimentacao from "../../components/CategoriaMovimentacao.jsx";
+import OrigemMovimentacao from "../../components/OrigemMovimentacao.jsx";
 import AnexoMovimentacao from "../../components/AnexoMovimentacao.jsx";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -14,16 +16,19 @@ const FORMAS_PAGAMENTO = [
     { valor: "0", label: "Pix" },
     { valor: "1", label: "Crédito" },
     { valor: "2", label: "Débito" },
-    { valor: "3", label: "Boleto" }
+    { valor: "3", label: "Boleto" },
+    { valor: "4", label: "Parcelamento" },
+    { valor: "5", label: "Dinheiro" }
 ];
 
+// Obtém a data de hoje no fuso local para limitar o campo de recebimento.
 function obterDataLocal() {
     const agora = new Date();
     const diferencaFuso = agora.getTimezoneOffset() * 60000;
     return new Date(agora.getTime() - diferencaFuso).toISOString().slice(0, 10);
 }
 
-export default function NovaEntrada({ usuario, onRegistrar, onLogout }) {
+export default function NovaEntrada({ usuario, categorias = [], origens = [], onRegistrar, onLogout }) {
     const navigate = useNavigate();
     const dataMaxima = obterDataLocal();
     const [arquivo, setArquivo] = useState("");
@@ -90,12 +95,13 @@ export default function NovaEntrada({ usuario, onRegistrar, onLogout }) {
                             <label className="entrada-field full"><span>Descrição do recebimento<b>*</b></span><input name="descricao" placeholder="Ex.: contribuição para a campanha de alimentos" required /></label>
                             <label className="entrada-field"><span>Valor recebido<b>*</b></span><input name="valor" type="number" min="0.01" step="0.01" required /></label>
                             <label className="entrada-field"><span>Data do recebimento<b>*</b></span><input name="dia" type="date" max={dataMaxima} required /></label>
+                            <CategoriaMovimentacao categorias={categorias} tipo={0} />
                             {/* O backend legado recebe o identificador do projeto no campo numérico CONTA. */}
-                            <label className="entrada-field"><span>Projeto relacionado<b>*</b></span><select name="conta" required disabled={carregandoProjetos || Boolean(erroProjetos)}><option value="">{carregandoProjetos ? "Carregando projetos..." : erroProjetos || (projetos.length ? "Selecione o projeto" : "Nenhum projeto cadastrado")}</option>{projetos.map((projeto) => <option key={projeto.id_projeto} value={projeto.id_projeto}>{projeto.nome}</option>)}</select></label>
+                            <label className="entrada-field"><span>Projeto ou missão em geral<b>*</b></span><select name="conta" required disabled={carregandoProjetos || Boolean(erroProjetos)}><option value="" disabled>{carregandoProjetos ? "Carregando projetos..." : erroProjetos || "Selecione uma opção"}</option><option value="0">Missão Guadalupe — sem projeto específico</option>{projetos.map((projeto) => <option key={projeto.id_projeto} value={projeto.id_projeto}>{projeto.nome}</option>)}</select></label>
                         </div></section>
                         <section className="entrada-panel"><h2>Origem e recebimento</h2><div className="entrada-grid">
-                            <label className="entrada-field"><span>Fonte do recurso<b>*</b></span><input name="origem" placeholder="Ex.: doador, empresa parceira ou evento" required /></label>
-                            <CampoMovimentacao label="Meio de recebimento" name="forma_pagamento" opcoes={FORMAS_PAGAMENTO} />
+                            <OrigemMovimentacao label="Fonte do recurso" origens={origens} placeholder="Ex.: doador, empresa parceira ou evento" />
+                            <CampoMovimentacao label="Meio de recebimento" name="forma_pagamento" opcoes={FORMAS_PAGAMENTO} required />
                         </div></section>
                         <section className="entrada-panel"><h2>Comprovantes e anexos</h2><p>Anexe documentos relacionados a este registro</p><AnexoMovimentacao arquivo={arquivo} onChange={(event) => setArquivo(event.target.files[0]?.name || "")} /></section>
                         <section className="entrada-panel"><h2>Observações</h2><label className="entrada-field"><span>Observação</span><textarea name="observacao" /></label></section>

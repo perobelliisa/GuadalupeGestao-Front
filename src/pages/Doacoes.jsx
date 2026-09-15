@@ -8,17 +8,20 @@ import "./Dashboard.css";
 import "../../components/Movimentacoes.css";
 import "./Doacoes.css";
 
+// Formata o valor financeiro da doação e preserva traço quando não há valor.
 function dinheiro(valor) {
     if (valor === "" || valor === null || valor === undefined) return "-";
     return "R$ " + Number(valor).toFixed(2).replace(".", ",");
 }
 
+// Converte a data retornada pela API para o padrão brasileiro.
 function dataBrasileira(data) {
     if (!data) return "-";
     const partes = data.split("-");
     return partes[2] + "/" + partes[1] + "/" + partes[0];
 }
 
+// Traduz o código do tipo de doação para o texto mostrado na tela.
 function nomeTipoDoacao(tipo) {
     if (Number(tipo) === 0) return "Dinheiro";
     if (Number(tipo) === 1) return "Alimento";
@@ -28,6 +31,7 @@ function nomeTipoDoacao(tipo) {
     return "-";
 }
 
+// Filtra, resume e mostra as doações cadastradas.
 export default function Doacoes({ usuario, apiUrl, doacoes = [], onAtualizar, onLogout }) {
     // Estados dos dois filtros e da doação que o usuário escolheu editar.
     const navigate = useNavigate();
