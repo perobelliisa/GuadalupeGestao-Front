@@ -102,7 +102,8 @@ export default function Sidebar({
                 {
                     id: "documentos",
                     nome: "Documentos dos Projetos",
-                    icone: "/documentos.png"
+                    icone: "/documentos.png",
+                    rota: "/documentos"
                 }
             ]
         },
@@ -115,7 +116,8 @@ export default function Sidebar({
                 {
                     id: "relatorios",
                     nome: "Relatórios",
-                    icone: "/relatorios.png"
+                    icone: "/relatorios.png",
+                    rota: "/relatorios"
                 },
                 // Acesso ao gerenciamento de usuários.
                 {

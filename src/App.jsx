@@ -14,6 +14,8 @@ import Emprestimos from "./pages/Emprestimos.jsx";
 import NovoEmprestimo from "./pages/NovoEmprestimo.jsx";
 import Configuracoes from "./pages/Configuracoes.jsx";
 import CentralProjetos from "./pages/Projetos.jsx";
+import DocumentosProjetos from "./pages/DocumentosProjetos.jsx";
+import Relatorios from "./pages/Relatorios.jsx";
 import { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
@@ -204,7 +206,8 @@ export default function App({ api }) {
                 tipo: 0,
                 valor: Number(doacao.valor),
                 dia: doacao.dia,
-                conta: "",
+                conta: doacao.id_projeto || 0,
+                projeto_nome: doacao.projeto_nome || "",
                 origem: doacao.doador,
                 forma_pagamento: "",
                 observacao: ""
@@ -313,6 +316,36 @@ export default function App({ api }) {
                                 usuario={usuario}
                                 entradas={entradas}
                                 despesas={despesas}
+                                projetos={projetos}
+                                onLogout={encerrarSessao}
+                            />
+                            : redirecionarParaLogin
+                    }
+                />
+                <Route
+                    path="/documentos"
+                    element={
+                        usuario
+                            ? <DocumentosProjetos
+                                usuario={usuario}
+                                apiUrl={api}
+                                projetos={projetos}
+                                onLogout={encerrarSessao}
+                            />
+                            : redirecionarParaLogin
+                    }
+                />
+                <Route
+                    path="/relatorios"
+                    element={
+                        usuario
+                            ? <Relatorios
+                                usuario={usuario}
+                                apiUrl={api}
+                                entradas={entradas}
+                                despesas={despesas}
+                                doacoes={doacoes}
+                                emprestimos={emprestimos}
                                 projetos={projetos}
                                 onLogout={encerrarSessao}
                             />
