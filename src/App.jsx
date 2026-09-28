@@ -16,6 +16,7 @@ import Configuracoes from "./pages/Configuracoes.jsx";
 import CentralProjetos from "./pages/Projetos.jsx";
 import DocumentosProjetos from "./pages/DocumentosProjetos.jsx";
 import Relatorios from "./pages/Relatorios.jsx";
+import Pendencias from "./pages/Pendencias.jsx";
 import { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
@@ -64,6 +65,7 @@ export default function App({ api }) {
     const [emprestimos, setEmprestimos] = useState([]);
     const [categorias, setCategorias] = useState([]);
     const [projetos, setProjetos] = useState([]);
+    const [versaoFinanceiro, setVersaoFinanceiro] = useState(0);
     const origens = montarOrigens(entradas, despesas);
     // Autoriza a administração de usuários somente para o tipo zero do banco.
     const usuarioAdministrador = Number(usuario?.tipo) === 0;
@@ -102,7 +104,7 @@ export default function App({ api }) {
 
         carregarLivroCaixa();
         return () => controller.abort();
-    }, [api, usuario?.id]);
+    }, [api, usuario?.id, versaoFinanceiro]);
 
     // Recebe a resposta de sucesso do login e registra somente dados públicos.
     function registrarLogin(dados) {
@@ -372,6 +374,14 @@ export default function App({ api }) {
                                 onRegistrar={registrarEntrada}
                                 onLogout={encerrarSessao}
                             />
+                            : redirecionarParaLogin
+                    }
+                />
+                <Route
+                    path="/pendencias"
+                    element={
+                        usuario
+                            ? <Pendencias usuario={usuario} apiUrl={api} projetos={projetos} onPagamento={() => setVersaoFinanceiro((atual) => atual + 1)} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />

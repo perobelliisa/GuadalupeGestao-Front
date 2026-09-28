@@ -35,11 +35,12 @@ export default function Sidebar({
                     icone: "/visaogeral.png",
                     rota: "/dashboard"
                 },
-                // Acesso à futura página de pendências.
+                // Acesso às pendências financeiras.
                 {
                     id: "pendencias",
                     nome: "Pendências",
-                    icone: "/pendencias.png"
+                    icone: "/pendencias.png",
+                    rota: "/pendencias"
                 }
             ]
         },
