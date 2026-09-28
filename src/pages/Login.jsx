@@ -44,19 +44,38 @@ export default function Login({ apiUrl, onLogin }) {
                 headers: { "Content-Type": "application/json" },
                 // Autoriza receber e enviar o cookie HttpOnly da autenticação.
                 credentials: "include",
+                signal: AbortSignal.timeout(15000),
                 // Converte e-mail e senha para texto JSON.
                 body: JSON.stringify({ email, senha })
+            }).catch((error) => {
+                if (error.name === "TimeoutError") {
+                    throw new Error("O servidor demorou mais de 15 segundos para responder ao login. Tente novamente.");
+                }
+                throw new Error("Falha de rede ao enviar o login. Verifique sua conexão e se o servidor está disponível.");
             });
 
-            // Converte a resposta em objeto e usa objeto vazio se ela não vier em JSON.
-            const dados = await resposta.json().catch(() => ({}));
+            const dados = await resposta.json().catch(() => null);
+            const mensagemDaApi = [dados?.mensagem, dados?.erro, dados?.message]
+                .find((valor) => typeof valor === "string" && valor.trim());
 
             // Trata respostas HTTP que representam falha.
             if (!resposta.ok) {
-                // Aproveita mensagens úteis devolvidas pelo backend.
-                const mensagemDaApi = dados.mensagem || dados.erro;
-                // Interrompe o fluxo normal e envia o texto ao bloco catch.
-                throw new Error(mensagemDaApi || "O servidor não informou o motivo do erro.");
+                const motivos = {
+                    400: "A API rejeitou os dados enviados.",
+                    401: "E-mail ou senha inválidos.",
+                    403: "Acesso não autorizado para esta conta.",
+                    404: "A rota de login não foi encontrada no servidor.",
+                    429: "Muitas tentativas de login. Aguarde antes de tentar novamente.",
+                    500: "O servidor apresentou um erro ao processar o login.",
+                    502: "O servidor intermediário não conseguiu uma resposta válida da API.",
+                    503: "O serviço de login está indisponível.",
+                    504: "A API demorou demais para responder ao servidor intermediário."
+                };
+                throw new Error(`Erro HTTP ${resposta.status}: ${mensagemDaApi || motivos[resposta.status] || "Falha ao processar o login."}`);
+            }
+
+            if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
+                throw new Error(`O servidor respondeu ao login com um formato inválido (HTTP ${resposta.status}).`);
             }
 
             // Confirma também o campo de sucesso definido pelo contrato da API.
@@ -82,10 +101,7 @@ export default function Login({ apiUrl, onLogin }) {
                 state: { mensagem: dados.mensagem }
             });
         } catch (error) {
-            // Diferencia falha de rede de uma rejeição controlada pela aplicação.
-            const texto = error instanceof TypeError
-                ? "Não foi possível conectar ao servidor. Verifique se a API está ligada."
-                : error.message;
+            const texto = error.message;
 
             // Exibe uma mensagem amigável em vez do erro técnico do navegador.
             setMensagem({

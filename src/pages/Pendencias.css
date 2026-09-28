@@ -8,3 +8,11 @@
 .pendencia-pagar:hover { background: var(--cor-fundo-azul); }
 .pendencia-pagar:disabled { opacity: .6; cursor: wait; }
 .pendencia-confirmacao > p { margin: 20px 24px; line-height: 1.5; }
+.pendencias-filtros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--cor-borda); border-radius: 12px; background: white; }
+.pendencias-filtros label { display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600; color: var(--cor-texto-secundario); min-width: 0; }
+.pendencias-filtros input, .pendencias-filtros select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px; padding: 10px; border: 1px solid var(--cor-borda); border-radius: 8px; background: white; color: var(--cor-texto-principal); font: inherit; }
+.pendencias-filtros input:focus-visible, .pendencias-filtros select:focus-visible, .pendencias-filtros button:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 2px; }
+.pendencias-filtros input[aria-invalid="true"] { border-color: #b91c1c; }
+.pendencias-filtros button { justify-self: start; }
+@media (max-width: 900px) { .pendencias-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .pendencias-filtros { grid-template-columns: minmax(0, 1fr); padding: 16px; } }

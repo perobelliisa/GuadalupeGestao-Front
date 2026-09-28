@@ -12,6 +12,9 @@ import "../../components/Movimentacoes.css";
 import "../../components/EditorMovimentacao.css";
 // Carrega as cores de prioridade e os demais estilos específicos desta página.
 import "./Pendencias.css";
+import { filtrarPendencias } from "../utils/filtrarPendencias.js";
+
+const filtrosVazios = { busca: "", projeto: "", inicio: "", fim: "", responsavel: "", prioridade: "" };
 
 // Cria um formatador de reais no padrão brasileiro, como R$ 1.234,50.
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -34,6 +37,8 @@ function prazo(dias) {
 export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento, onLogout }) {
     // Guarda as ocorrências abertas; setPendencias atualiza a lista e provoca uma nova renderização.
     const [pendencias, setPendencias] = useState([]);
+    const [filtros, setFiltros] = useState(filtrosVazios);
+    const alterarFiltro = (campo, valor) => setFiltros((atuais) => ({ ...atuais, [campo]: valor }));
     // Guarda avisos da API, como registros com datas inválidas que precisam ser corrigidos.
     const [avisos, setAvisos] = useState([]);
     // Começa carregando para não mostrar uma falsa lista vazia antes da primeira consulta.
@@ -66,9 +71,16 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
         // Inicia o bloco protegido para tratar falhas de rede, interpretação da resposta ou validação.
         try {
             // Consulta a lista; credentials envia os cookies de sessão e signal permite cancelar a requisição.
-            const resposta = await fetch(`${apiUrl}/pendencias`, { credentials: "include", signal: controller.signal });
+            const [resposta, respostaEmprestimos] = await Promise.all([
+                fetch(`${apiUrl}/pendencias`, { credentials: "include", signal: controller.signal }),
+                fetch(`${apiUrl}/emprestimos`, { credentials: "include", signal: controller.signal })
+            ]);
             // Aguarda a conversão do corpo JSON da resposta em um objeto JavaScript.
             const dados = await resposta.json();
+            const dadosEmprestimos = await respostaEmprestimos.json();
+            if (!respostaEmprestimos.ok || !Array.isArray(dadosEmprestimos.emprestimos)) {
+                throw new Error("Não foi possível carregar os responsáveis. Atualize a lista para tentar novamente.");
+            }
             // Exige sucesso HTTP, confirmação da API e um array válido de pendências.
             if (!resposta.ok || !dados.sucesso || !Array.isArray(dados.pendencias)) {
                 // Interrompe o fluxo com a mensagem da API ou, se ausente, uma mensagem padrão.
@@ -77,7 +89,12 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
             // Só aplica a resposta se esta consulta não foi cancelada por uma mais recente ou pela saída da página.
             if (!controller.signal.aborted) {
                 // Substitui a lista exibida pelos dados atualizados recebidos do servidor.
-                setPendencias(dados.pendencias);
+                const emprestimos = new Map(dadosEmprestimos.emprestimos.map((item) => [String(item.id_emprestimo), item]));
+                setPendencias(dados.pendencias.map((item) => {
+                    const emprestimo = item.tipo === "emprestimo" ? emprestimos.get(String(item.id)) : null;
+                    return { ...item, responsavel_id: emprestimo?.id_usuario ?? null,
+                        responsavel_nome: emprestimo?.usuario?.trim() || (emprestimo?.id_usuario != null ? `Usuário ${emprestimo.id_usuario}` : "Sem responsável") };
+                }));
                 // Atualiza os avisos e usa uma lista vazia caso a API não envie nenhum.
                 setAvisos(dados.avisos || []);
             }
@@ -178,6 +195,13 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
         return projetos.find((projeto) => String(projeto.id_projeto) === String(conta))?.nome || conta || "—";
     }
 
+    const periodoInvalido = Boolean(filtros.inicio && filtros.fim && filtros.inicio > filtros.fim);
+    const filtradas = filtrarPendencias(pendencias, filtros, nomeProjeto);
+    const projetosDisponiveis = [...new Map(pendencias.map((item) => [String(item.conta ?? "sem-projeto"), nomeProjeto(item.conta)])).entries()]
+        .sort((a, b) => String(a[1]).localeCompare(String(b[1]), "pt-BR"));
+    const responsaveis = [...new Map(pendencias.map((item) => [String(item.responsavel_id ?? "sem-responsavel"), item.responsavel_nome])).entries()]
+        .sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+
     // Retorna o JSX que o React transforma na interface da página.
     return (
         // Organiza o menu lateral e a área principal no layout geral.
@@ -194,6 +218,17 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
                     <div className="entradas-titlebar"><div><h1>Pendências</h1><p>Próximo vencimento em aberto de cada conta recorrente e empréstimo parcelado</p></div><button type="button" className="entradas-primary" disabled={carregando || salvando} onClick={carregar}>Atualizar</button></div>
                     {/* Explica as faixas de prioridade usadas pelo backend. */}
                     <p className="pendencias-legenda">Alta: vencidas ou até 2 dias • Média: de 3 a 13 dias • Baixa: a partir de 14 dias</p>
+                    <section className="pendencias-filtros" aria-label="Buscar e filtrar pendências">
+                        <label className="pendencias-busca">Buscar pendências<input type="search" placeholder="Descrição, projeto ou responsável" value={filtros.busca} onChange={(event) => alterarFiltro("busca", event.target.value)} /></label>
+                        <label>Projeto<select value={filtros.projeto} onChange={(event) => alterarFiltro("projeto", event.target.value)}><option value="">Todos os projetos</option>{projetosDisponiveis.map(([id, nome]) => <option key={id} value={id}>{nome === "—" ? "Sem projeto" : nome}</option>)}</select></label>
+                        <label>Vencimento a partir de<input type="date" value={filtros.inicio} aria-invalid={periodoInvalido} aria-describedby={periodoInvalido ? "erro-periodo" : undefined} onChange={(event) => alterarFiltro("inicio", event.target.value)} /></label>
+                        <label>Vencimento até<input type="date" value={filtros.fim} aria-invalid={periodoInvalido} aria-describedby={periodoInvalido ? "erro-periodo" : undefined} onChange={(event) => alterarFiltro("fim", event.target.value)} /></label>
+                        <label>Responsável<select value={filtros.responsavel} onChange={(event) => alterarFiltro("responsavel", event.target.value)}><option value="">Todos os responsáveis</option>{responsaveis.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label>
+                        <label>Prioridade<select value={filtros.prioridade} onChange={(event) => alterarFiltro("prioridade", event.target.value)}><option value="">Todas as prioridades</option>{["Alta", "Média", "Baixa"].map((valor) => <option key={valor}>{valor}</option>)}</select></label>
+                        <button type="button" className="pendencia-pagar" onClick={() => setFiltros(filtrosVazios)} disabled={!Object.values(filtros).some(Boolean)}>Limpar filtros</button>
+                    </section>
+                    {periodoInvalido && <p id="erro-periodo" role="alert" className="mov-modal-error">A data inicial deve ser anterior ou igual à data final.</p>}
+                    {!carregando && !erro && <p role="status">{filtradas.length} de {pendencias.length} pendência(s)</p>}
                     {/* Mostra a confirmação somente quando preenchida; role=status anuncia a atualização a leitores de tela. */}
                     {mensagem && <p role="status">{mensagem}</p>}
                     {/* Exibe o erro quando houver; role=alert destaca a mensagem para leitores de tela. */}
@@ -203,27 +238,27 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
                     {/* Agrupa os cartões e dá à seção um nome acessível com aria-label. */}
                     <section className="entradas-summary" aria-label="Prioridades">
                         {/* Cria um cartão por prioridade; filter conta as ocorrências e mostra um traço durante carregamento ou erro. */}
-                        {["Alta", "Média", "Baixa"].map((prioridade) => <article key={prioridade}><span className={classePrioridade(prioridade)}>{prioridade}</span><div><small>Pendências</small><strong>{carregando || erro ? "—" : pendencias.filter((item) => item.prioridade === prioridade).length}</strong></div></article>)}
+                        {["Alta", "Média", "Baixa"].map((prioridade) => <article key={prioridade}><span className={classePrioridade(prioridade)}>{prioridade}</span><div><small>Pendências</small><strong>{carregando || erro ? "—" : filtradas.filter((item) => item.prioridade === prioridade).length}</strong></div></article>)}
                     </section>
                     {/* Contém a listagem; aria-busy informa que os dados estão sendo carregados. */}
                     <section className="entradas-table-card" aria-label="Pendências financeiras" aria-busy={carregando}>
                         {/* Escolhe entre carregamento, erro, lista vazia e tabela; falhas não são apresentadas como ausência de pendências. */}
-                        {carregando ? <div className="entradas-empty" role="status">Carregando pendências...</div> : erro ? <div className="entradas-empty">Atualize a lista para consultar os vencimentos.</div> : pendencias.length === 0 ? (
+                        {carregando ? <div className="entradas-empty" role="status">Carregando pendências...</div> : erro ? <div className="entradas-empty">Atualize a lista para consultar os vencimentos.</div> : filtradas.length === 0 ? (
                             // Mostra o estado vazio apenas após uma consulta bem-sucedida que não trouxe ocorrências.
-                            <div className="entradas-empty"><strong>Nenhuma pendência encontrada</strong><span>Não há vencimentos em aberto para as contas recorrentes e os empréstimos parcelados consultados.</span></div>
+                            <div className="entradas-empty"><strong>{periodoInvalido ? "Confira o período informado" : "Nenhuma pendência encontrada"}</strong><span>{periodoInvalido ? "Corrija as datas para consultar as pendências." : pendencias.length ? "Nenhuma pendência corresponde aos filtros. Altere ou limpe os filtros." : "Não há vencimentos em aberto para as contas recorrentes e os empréstimos parcelados consultados."}</span></div>
                         ) : (
                             // Permite rolagem horizontal quando a tabela é mais larga que a tela.
                             <div className="entradas-table-scroll"><table>
                                 {/* Define os títulos das seis colunas da tabela. */}
-                                <thead><tr><th>PRIORIDADE</th><th>DESCRIÇÃO</th><th>PROJETO / CASA</th><th>VENCIMENTO</th><th>VALOR</th><th>AÇÃO</th></tr></thead>
+                                <thead><tr><th>PRIORIDADE</th><th>DESCRIÇÃO</th><th>PROJETO / CASA</th><th>RESPONSÁVEL</th><th>VENCIMENTO</th><th>VALOR</th><th>AÇÃO</th></tr></thead>
                                 {/* Cria uma linha por ocorrência; item.chave diferencia inclusive os vencimentos de uma mesma conta. */}
-                                <tbody>{pendencias.map((item) => <tr key={item.chave}>
+                                <tbody>{filtradas.map((item) => <tr key={item.chave}>
                                     {/* Exibe a prioridade com a classe CSS que determina sua cor. */}
                                     <td><span className={classePrioridade(item.prioridade)}>{item.prioridade}</span></td>
                                     {/* Mostra a descrição e identifica a conta recorrente ou o número da parcela do empréstimo. */}
                                     <td><strong>{item.descricao || "—"}</strong><small className="pendencia-detalhe">{item.tipo === "despesa" ? "Conta recorrente" : `Empréstimo — parcela ${item.parcela}/${item.parcelas}`}</small></td>
                                     {/* Preenche projeto, data formatada, prazo em dias e valor em reais da ocorrência. */}
-                                    <td>{nomeProjeto(item.conta)}</td><td>{dataBrasileira(item.vencimento)}<small className="pendencia-detalhe">{prazo(item.dias)}</small></td><td>{moeda.format(item.valor)}</td>
+                                    <td>{nomeProjeto(item.conta)}</td><td>{item.responsavel_nome}</td><td>{dataBrasileira(item.vencimento)}<small className="pendencia-detalhe">{prazo(item.dias)}</small></td><td>{moeda.format(item.valor)}</td>
                                     {/* O clique seleciona a ocorrência, abre a confirmação e limpa o sucesso anterior; ainda não grava o pagamento. */}
                                     <td><button type="button" className="pendencia-pagar" disabled={salvando} onClick={() => { setSelecionada(item); setMensagem(""); }}>Marcar como paga</button></td>
                                 </tr>)}</tbody>

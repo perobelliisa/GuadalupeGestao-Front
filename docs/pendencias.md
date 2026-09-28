@@ -12,6 +12,10 @@ Nos empréstimos, as parcelas vencem mensalmente a partir da data de contrataç�
 
 ## Pagamentos
 
+A busca por texto considera descrição, projeto, responsável e prioridade, sem distinguir acentos ou maiúsculas. Os filtros por projeto, período de vencimento (limites inclusivos), responsável e prioridade podem ser combinados. O botão “Limpar filtros” restaura a lista; os cartões mostram as quantidades do resultado filtrado.
+
+O responsável é o usuário vinculado ao empréstimo, obtido de `GET /emprestimos`. Contas recorrentes não possuem responsável cadastrado e aparecem como “Sem responsável”. Os filtros usam IDs para distinguir pessoas com o mesmo nome. Um período com data inicial posterior à final mostra um aviso.
+
 `POST /pendencias/<tipo>/<id>/pagar` recebe o vencimento exibido na tela. O backend verifica novamente se é a próxima ocorrência aberta. Repetir a mesma requisição não paga outra parcela.
 
 O status da despesa original corresponde ao primeiro vencimento. Para os seguintes, o backend registra uma despesa paga no livro-caixa e relaciona a ocorrência na tabela `PAGAMENTO_RECORRENCIA`, na mesma transação. O histórico permanece no banco após recarregar ou reiniciar. Reverter explicitamente o status de um pagamento reabre aquela ocorrência.
@@ -22,12 +26,12 @@ A tela remove a ocorrência somente após confirmação da API e consulta novame
 
 ## Backend e verificação
 
-Os arquivos `pendencias.py`, `regras_pendencias.py` e `test_pendencias.py` ficam no projeto irmão `GuadalupeGestao-Back`. O `main.py` registra as rotas e cria a tabela de controle, caso ainda não exista. Reinicie o backend caso o recarregamento automático esteja desativado.
+No projeto irmão `GuadalupeGestao-Back`, os cálculos e consultas ficam em `function.py`, e as rotas de pendências ficam em `livro_caixa.py`. O `main.py` registra as rotas e cria a tabela de controle, caso ainda não exista. Os testes ficam separados em `tests/test_financeiro.py`. Reinicie o backend caso o recarregamento automático esteja desativado.
 
 Na pasta do backend, execute:
 
 ```powershell
-python -B -m unittest test_pendencias -v
+python -B -m unittest discover -s tests -p test_financeiro.py -v
 ```
 
 Os testes usam um banco temporário isolado: limites de prioridade, calendários, atrasos, fim de recorrência, quitação, pagamento repetido, autenticação, dados inválidos, reversão, persistência ao reabrir o banco e rollback em caso de falha. Nenhum pagamento real é alterado pelos testes.

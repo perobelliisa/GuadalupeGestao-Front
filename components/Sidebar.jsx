@@ -1,5 +1,6 @@
 // Importa o ícone do ambiente atual.
-import { LogOut, ShieldCheck } from "lucide-react";
+import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 // Importa a navegação usada pelos itens que já possuem página.
 import { useNavigate } from "react-router-dom";
 // Importa o módulo CSS e disponibiliza suas classes como propriedades.
@@ -19,6 +20,48 @@ export default function Sidebar({
 
     // Cria a função de troca de rota sem recarregar o navegador.
     const navigate = useNavigate();
+    const [menuAberto, setMenuAberto] = useState(false);
+    const menuId = useId();
+    const menuRef = useRef(null);
+    const botaoRef = useRef(null);
+
+    useEffect(() => {
+        if (!menuAberto) return;
+
+        const painel = menuRef.current;
+        const botao = botaoRef.current;
+        const overflowAnterior = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        painel.querySelector("button")?.focus();
+
+        function controlarTeclado(event) {
+            if (event.key === "Escape") setMenuAberto(false);
+            if (event.key !== "Tab") return;
+            const botoes = painel.querySelectorAll("button");
+            const primeiro = botoes[0];
+            const ultimo = botoes[botoes.length - 1];
+            if (event.shiftKey && document.activeElement === primeiro) {
+                event.preventDefault();
+                ultimo.focus();
+            } else if (!event.shiftKey && document.activeElement === ultimo) {
+                event.preventDefault();
+                primeiro.focus();
+            }
+        }
+
+        const media = window.matchMedia("(max-width: 700px)");
+        function fecharNoDesktop(event) {
+            if (!event.matches) setMenuAberto(false);
+        }
+        document.addEventListener("keydown", controlarTeclado);
+        media.addEventListener("change", fecharNoDesktop);
+        return () => {
+            document.body.style.overflow = overflowAnterior;
+            document.removeEventListener("keydown", controlarTeclado);
+            media.removeEventListener("change", fecharNoDesktop);
+            if (botao?.isConnected && media.matches) botao.focus();
+        };
+    }, [menuAberto]);
     // Define se o item administrativo de usuários pode ser exibido.
     const podeGerenciarUsuarios = Number(tipoUsuario) === 0;
 
@@ -141,6 +184,7 @@ export default function Sidebar({
 
     // Trata a seleção de qualquer item do menu.
     function navegar(item) {
+        setMenuAberto(false);
 
         // Abre a rota quando o item já possui uma página implementada.
         if (item.rota) {
@@ -177,7 +221,30 @@ export default function Sidebar({
     return (
 
         // Elemento semântico que identifica a navegação lateral.
-        <aside className={css.sidebar}>
+        <>
+        <button
+            ref={botaoRef}
+            type="button"
+            className={css.menuToggle}
+            aria-label="Abrir menu de navegação"
+            aria-expanded={menuAberto}
+            aria-controls={menuId}
+            onClick={() => setMenuAberto(true)}
+        >
+            <Menu size={24} aria-hidden="true" />
+        </button>
+        {menuAberto && <div className={css.overlay} onClick={() => setMenuAberto(false)} aria-hidden="true" />}
+        <aside
+            id={menuId}
+            ref={menuRef}
+            className={`${css.sidebar} ${menuAberto ? css.sidebarAberta : ""}`}
+            role={menuAberto ? "dialog" : undefined}
+            aria-modal={menuAberto ? true : undefined}
+            aria-label="Menu de navegação"
+        >
+            <button type="button" className={css.fecharMenu} aria-label="Fechar menu de navegação" onClick={() => setMenuAberto(false)}>
+                <X size={24} aria-hidden="true" />
+            </button>
 
             {/* LOGO */}
 
@@ -325,6 +392,7 @@ export default function Sidebar({
             </div>
 
         </aside>
+        </>
 
     );
 }
