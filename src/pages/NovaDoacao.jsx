@@ -1,3 +1,4 @@
+import { API_URL } from "../config/api.js";
 // Esta página contém o formulário usado para cadastrar uma nova doação.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
@@ -10,7 +11,7 @@ import "../../components/FormularioMovimentacao.css";
 import "./NovaDoacao.css";
 
 // Reúne os dados necessários para registrar uma nova doação.
-export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, onLogout }) {
+export default function NovaDoacao({ usuario, opcoes = {}, onRegistrar, onLogout }) {
     // Estados usados para controlar o arquivo, projetos, mensagens e botão de salvar.
     const navigate = useNavigate();
     const [arquivo, setArquivo] = useState("");
@@ -32,7 +33,7 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
         const controller = new AbortController();
         async function carregarProjetos() {
             try {
-                const resposta = await fetch(`${apiUrl}/projetos`, { credentials: "include", signal: controller.signal });
+                const resposta = await fetch(`${API_URL}/projetos`, { credentials: "include", signal: controller.signal });
                 const dados = await resposta.json().catch(() => ({}));
                 if (!resposta.ok || !dados.sucesso) throw new Error(dados.mensagem || dados.erro || "Não foi possível carregar os projetos.");
                 setProjetos(Array.isArray(dados.projetos) ? dados.projetos : []);
@@ -44,7 +45,7 @@ export default function NovaDoacao({ usuario, apiUrl, opcoes = {}, onRegistrar, 
         }
         carregarProjetos();
         return () => controller.abort();
-    }, [apiUrl]);
+    }, []);
 
     // Lê o formulário, prepara a doação e pede para o App salvá-la.
     async function registrar(event) {

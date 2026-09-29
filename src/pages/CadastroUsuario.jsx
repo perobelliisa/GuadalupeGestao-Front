@@ -1,3 +1,4 @@
+import { API_URL } from "../config/api.js";
 // Importa os componentes compartilhados com a dashboard.
 // Esta página contém o formulário de cadastro de um usuário do sistema.
 import Sidebar from "../../components/Sidebar.jsx";
@@ -14,7 +15,7 @@ import "./CadastroUsuario.css";
 
 // Exibe o formulário e recebe o usuário autenticado e o endereço central da API.
 // Monta o formulário que cria uma nova conta de acesso ao sistema.
-export default function CadastroUsuario({ usuario, apiUrl, onLogout }) {
+export default function CadastroUsuario({ usuario, onLogout }) {
 
     // Cria a função de navegação entre páginas.
     const navigate = useNavigate();
@@ -35,7 +36,7 @@ export default function CadastroUsuario({ usuario, apiUrl, onLogout }) {
 
         async function carregarProjetos() {
             try {
-                const resposta = await fetch(`${apiUrl}/projetos`, {
+                const resposta = await fetch(`${API_URL}/projetos`, {
                     credentials: "include",
                     signal: controller.signal
                 });
@@ -58,7 +59,7 @@ export default function CadastroUsuario({ usuario, apiUrl, onLogout }) {
         carregarProjetos();
 
         return () => controller.abort();
-    }, [apiUrl]);
+    }, []);
 
     // Envia os campos no formato multipart/form-data esperado pelo Flask.
     async function cadastrarUsuario(event) {
@@ -75,7 +76,7 @@ export default function CadastroUsuario({ usuario, apiUrl, onLogout }) {
 
         try {
             // Chama o endpoint de cadastro sem definir Content-Type manualmente.
-            const resposta = await fetch(`${apiUrl}/cadastro`, {
+            const resposta = await fetch(`${API_URL}/cadastro`, {
                 method: "POST",
                 credentials: "include",
                 body: dadosFormulario

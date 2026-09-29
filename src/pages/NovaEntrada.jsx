@@ -1,3 +1,4 @@
+import { API_URL } from "../config/api.js";
 // Esta página contém o formulário usado para cadastrar uma nova entrada.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
@@ -43,7 +44,7 @@ export default function NovaEntrada({ usuario, categorias = [], origens = [], on
 
         async function carregarProjetos() {
             try {
-                const resposta = await fetch("/api/projetos", { credentials: "include", signal: controller.signal });
+                const resposta = await fetch(`${API_URL}/projetos`, { credentials: "include", signal: controller.signal });
                 const dados = await resposta.json().catch(() => ({}));
                 if (!resposta.ok || !dados.sucesso) throw new Error(dados.mensagem || dados.erro || "Não foi possível carregar os projetos.");
                 setProjetos(Array.isArray(dados.projetos) ? dados.projetos : []);

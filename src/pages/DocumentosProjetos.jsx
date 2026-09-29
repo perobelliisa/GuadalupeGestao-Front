@@ -1,3 +1,4 @@
+import { API_URL } from "../config/api.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
     FileImage,
@@ -38,7 +39,7 @@ function eImagem(nome = "") {
     return /\.(jpe?g|png|gif|webp)$/i.test(nome);
 }
 
-export default function DocumentosProjetos({ usuario, apiUrl, projetos = [], onLogout }) {
+export default function DocumentosProjetos({ usuario, projetos = [], onLogout }) {
     const [documentos, setDocumentos] = useState([]);
     const [busca, setBusca] = useState("");
     const [projetoAtivo, setProjetoAtivo] = useState("");
@@ -57,7 +58,7 @@ export default function DocumentosProjetos({ usuario, apiUrl, projetos = [], onL
         const controller = new AbortController();
         async function carregar() {
             try {
-                const resposta = await fetch(`${apiUrl}/documentos`, {
+                const resposta = await fetch(`${API_URL}/documentos`, {
                     credentials: "include",
                     signal: controller.signal
                 });
@@ -72,7 +73,7 @@ export default function DocumentosProjetos({ usuario, apiUrl, projetos = [], onL
         }
         carregar();
         return () => controller.abort();
-    }, [apiUrl]);
+    }, []);
 
     const documentosFiltrados = useMemo(() => documentos.filter((documento) => {
         const termo = busca.trim().toLocaleLowerCase("pt-BR");
@@ -109,7 +110,7 @@ export default function DocumentosProjetos({ usuario, apiUrl, projetos = [], onL
             formulario.append("titulo", titulo.trim());
             projetosSelecionados.forEach((id) => formulario.append("projetos", id));
             if (projetosSelecionados.length === 1) formulario.append("id_projeto", projetosSelecionados[0]);
-            const resposta = await fetch(`${apiUrl}/documentos`, {
+            const resposta = await fetch(`${API_URL}/documentos`, {
                 method: "POST",
                 credentials: "include",
                 body: formulario
@@ -146,7 +147,7 @@ export default function DocumentosProjetos({ usuario, apiUrl, projetos = [], onL
         try {
             const url = /^https?:|^blob:|^data:/i.test(documento.caminho)
                 ? documento.caminho
-                : `${apiUrl}${documento.caminho.startsWith("/") ? "" : "/"}${documento.caminho}`;
+                : `${API_URL}${documento.caminho.startsWith("/") ? "" : "/"}${documento.caminho}`;
             const resposta = await fetch(url, { credentials: "include" });
             if (!resposta.ok) throw new Error();
             const blob = await resposta.blob();
@@ -168,7 +169,7 @@ export default function DocumentosProjetos({ usuario, apiUrl, projetos = [], onL
         setExcluindo(documento.id);
         setMensagem(null);
         try {
-            const resposta = await fetch(`${apiUrl}/documentos/${documento.id}`, {
+            const resposta = await fetch(`${API_URL}/documentos/${documento.id}`, {
                 method: "DELETE",
                 credentials: "include"
             });

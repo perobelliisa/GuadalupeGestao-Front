@@ -46,7 +46,7 @@ function nomeDoProjeto(codigo, projetos) {
 }
 
 // Exibe os recebimentos, seus totais e o editor da linha selecionada.
-export default function Entradas({ usuario, apiUrl, entradas = [], categorias = [], projetos = [], origens = [], onAtualizar, onLogout }) {
+export default function Entradas({ usuario, entradas = [], categorias = [], projetos = [], origens = [], onAtualizar, onLogout }) {
     // Guarda a entrada clicada; ela será enviada para o componente de edição.
     const navigate = useNavigate();
     const [selecionada, setSelecionada] = useState(null);
@@ -82,5 +82,5 @@ export default function Entradas({ usuario, apiUrl, entradas = [], categorias = 
         <div className="entradas-titlebar"><div><h1>Entradas</h1><p>Todos os recebimentos registrados pela Missão</p></div><button type="button" className="entradas-primary" onClick={() => navigate("/entradas/nova")}>+ Nova entrada</button></div>
         <section className="entradas-summary"><article><span className="summary-icon blue">R$</span><div><small>Total no período</small><strong>{formatarDinheiro(total)}</strong></div></article><article><span className="summary-icon teal">+</span><div><small>Entradas registradas</small><strong>{entradas.length}</strong></div></article><article><span className="summary-icon green">✓</span><div><small>Confirmadas</small><strong>{confirmadas}</strong></div></article></section>
         <section className="entradas-table-card">{entradasMostradas.length === 0 ? <div className="entradas-empty"><strong>Nenhuma entrada encontrada</strong><span>As entradas aparecerão aqui após o primeiro registro.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>CATEGORIA</th><th>PROJETO</th><th>QUEM ENVIOU</th><th>VALOR</th><th>FORMA</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
-    </main></div>{selecionada && <EditorMovimentacao item={selecionada} tipo="Entrada" apiUrl={apiUrl} categorias={categorias} projetos={projetos} origens={origens} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}</div>;
+    </main></div>{selecionada && <EditorMovimentacao item={selecionada} tipo="Entrada" categorias={categorias} projetos={projetos} origens={origens} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}</div>;
 }

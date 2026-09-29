@@ -1,16 +1,37 @@
-# React + Vite
+# Guadalupe Gestão — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interface React com Vite. A autenticação depende do backend Flask e do banco de dados dele.
 
-Currently, two official plugins are available:
+## Executar localmente
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Inicie o projeto `GuadalupeGestao-Back` e confirme que ele está ouvindo na porta 5000.
+2. Instale as dependências com `npm install`.
+3. Execute `npm run dev` e abra o endereço exibido pelo Vite.
 
-## React Compiler
+No PowerShell, use `npm.cmd` se a política de execução bloquear `npm.ps1`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Endereço do backend
 
-## Expanding the Oxlint configuration
+O frontend envia as chamadas para `/api`. O proxy do Vite encaminha essas chamadas para `http://127.0.0.1:5000` por padrão, removendo o prefixo `/api` e preservando os cookies de autenticação.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+As páginas e os componentes importam a variável `API_URL` de `src/config/api.js` para montar as chamadas, por exemplo: ``fetch(`${API_URL}/login`, opcoes)``. O endereço do backend continua configurado no proxy do Vite.
+
+Para usar um backend em outra máquina, copie `.env.example` para `.env.local` e ajuste:
+
+```dotenv
+API_TARGET=http://ENDERECO_DO_BACKEND:5000
+```
+
+Reinicie o Vite após a alteração. Use uma conta cadastrada no banco do backend escolhido: servidores diferentes podem ter usuários e senhas diferentes.
+
+## Verificações
+
+```sh
+npm run build
+npm run lint
+node --test --test-isolation=none src/utils/filtrarPendencias.test.js
+```
+
+## Publicação
+
+O build gera os arquivos estáticos em `dist`. Ao hospedá-los, configure o servidor para encaminhar `/api/*` ao backend, removendo `/api`, e servir `index.html` nas rotas da aplicação. A configuração de proxy do Vite não é incluída nos arquivos estáticos.

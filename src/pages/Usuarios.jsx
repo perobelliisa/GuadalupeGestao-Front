@@ -1,3 +1,4 @@
+import { API_URL } from "../config/api.js";
 // Importa a barra lateral que contém os links de navegação do sistema.
 // Esta página lista usuários, permite editar seus dados e excluir um usuário.
 import Sidebar from "../../components/Sidebar.jsx";
@@ -111,9 +112,9 @@ function formatarProjetosPermitidos(item) {
 }
 
 // Componente principal responsável por carregar e apresentar os usuários cadastrados.
-// A propriedade usuario contém a conta autenticada e apiUrl contém o endereço central da API.
+// A propriedade usuario contém a conta autenticada e API_URL contém o endereço central da API.
 // Lista contas, controla filtros e administra edição e exclusão de usuários.
-export default function Usuarios({ usuario, apiUrl, onSessaoInvalida, onLogout }) {
+export default function Usuarios({ usuario, onSessaoInvalida, onLogout }) {
     // Cria a função usada para navegar até o formulário de novo usuário.
     const navigate = useNavigate();
     const location = useLocation();
@@ -144,7 +145,7 @@ export default function Usuarios({ usuario, apiUrl, onSessaoInvalida, onLogout }
     // Incrementar este número solicita uma nova leitura dos dados após editar ou excluir.
     const [versaoLista, setVersaoLista] = useState(0);
 
-    // Executa a busca ao montar o componente e novamente apenas se apiUrl mudar.
+    // Executa a busca ao montar o componente e quando as dependências da lista mudarem.
     useEffect(() => {
         // Cria um controlador para interromper a chamada caso o usuário saia da página.
         const controller = new AbortController();
@@ -156,12 +157,12 @@ export default function Usuarios({ usuario, apiUrl, onSessaoInvalida, onLogout }
                 setErro("");
 
                 // A lista de projetos é auxiliar e não deve impedir a exibição dos usuários.
-                const requisicaoProjetos = fetch(`${apiUrl}/projetos`, {
+                const requisicaoProjetos = fetch(`${API_URL}/projetos`, {
                     credentials: "include",
                     signal: controller.signal
                 }).catch(() => null);
 
-                const respostaUsuarios = await fetch(`${apiUrl}/usuarios`, {
+                const respostaUsuarios = await fetch(`${API_URL}/usuarios`, {
                     credentials: "include",
                     signal: controller.signal
                 });
@@ -232,7 +233,7 @@ export default function Usuarios({ usuario, apiUrl, onSessaoInvalida, onLogout }
         // Retorna a limpeza do efeito, cancelando uma chamada ainda pendente ao sair da página.
         return () => controller.abort();
     // A versão permite repetir a leitura depois de salvar ou excluir um usuário.
-    }, [apiUrl, navigate, onSessaoInvalida, versaoLista]);
+    }, [navigate, onSessaoInvalida, versaoLista]);
 
     // Abre o modal preenchendo os campos com os dados da linha que recebeu o clique.
     function abrirEdicao(item) {
@@ -300,7 +301,7 @@ export default function Usuarios({ usuario, apiUrl, onSessaoInvalida, onLogout }
         }
 
         try {
-            const resposta = await fetch(`${apiUrl}/usuarios/${edicao.id_usuario}`, {
+            const resposta = await fetch(`${API_URL}/usuarios/${edicao.id_usuario}`, {
                 method: "PUT",
                 credentials: "include",
                 body: formulario
@@ -335,7 +336,7 @@ export default function Usuarios({ usuario, apiUrl, onSessaoInvalida, onLogout }
         setMensagemAcao(null);
 
         try {
-            const resposta = await fetch(`${apiUrl}/usuarios/${edicao.id_usuario}`, {
+            const resposta = await fetch(`${API_URL}/usuarios/${edicao.id_usuario}`, {
                 method: "DELETE",
                 credentials: "include"
             });

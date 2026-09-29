@@ -1,3 +1,4 @@
+import { API_URL } from "./config/api.js";
 // Importa as duas páginas disponíveis na aplicação.
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -56,7 +57,7 @@ function montarOrigens(entradas, despesas) {
 
 // Componente raiz que controla autenticação e navegação.
 // Componente raiz: mantém a sessão, carrega os dados e define as rotas.
-export default function App({ api }) {
+export default function App() {
     // Inicializa o estado lendo a sessão apenas na primeira renderização.
     const [usuario, setUsuario] = useState(carregarUsuario);
     const [entradas, setEntradas] = useState([]);
@@ -77,11 +78,11 @@ export default function App({ api }) {
         async function carregarLivroCaixa() {
             try {
                 const respostas = await Promise.all([
-                    fetch(`${api}/livro-caixa`, { credentials: "include", signal: controller.signal }),
-                    fetch(`${api}/doacoes`, { credentials: "include", signal: controller.signal }),
-                    fetch(`${api}/emprestimos`, { credentials: "include", signal: controller.signal }),
-                    fetch(`${api}/categorias`, { credentials: "include", signal: controller.signal }),
-                    fetch(`${api}/projetos`, { credentials: "include", signal: controller.signal })
+                    fetch(`${API_URL}/livro-caixa`, { credentials: "include", signal: controller.signal }),
+                    fetch(`${API_URL}/doacoes`, { credentials: "include", signal: controller.signal }),
+                    fetch(`${API_URL}/emprestimos`, { credentials: "include", signal: controller.signal }),
+                    fetch(`${API_URL}/categorias`, { credentials: "include", signal: controller.signal }),
+                    fetch(`${API_URL}/projetos`, { credentials: "include", signal: controller.signal })
                 ]);
                 const [dadosLivro, dadosDoacoes, dadosEmprestimos, dadosCategorias, dadosProjetos] = await Promise.all(
                     respostas.map((resposta) => resposta.json().catch(() => ({})))
@@ -104,7 +105,7 @@ export default function App({ api }) {
 
         carregarLivroCaixa();
         return () => controller.abort();
-    }, [api, usuario?.id, versaoFinanceiro]);
+    }, [usuario?.id, versaoFinanceiro]);
 
     // Recebe a resposta de sucesso do login e registra somente dados públicos.
     function registrarLogin(dados) {
@@ -137,14 +138,14 @@ export default function App({ api }) {
                 formulario.append(campo, valor);
             }
         });
-        const resposta = await fetch(`${api}${rota}`, { method: metodo, credentials: "include", body: formulario });
+        const resposta = await fetch(`${API_URL}${rota}`, { method: metodo, credentials: "include", body: formulario });
         const retorno = await resposta.json().catch(() => ({}));
         if (!resposta.ok || !retorno.sucesso) throw new Error(retorno.mensagem || retorno.erro || "Não foi possível salvar a movimentação.");
         return retorno;
     }
 
     async function atualizarCategorias() {
-        const resposta = await fetch(`${api}/categorias`, { credentials: "include" });
+        const resposta = await fetch(`${API_URL}/categorias`, { credentials: "include" });
         const dados = await resposta.json().catch(() => ({}));
         if (resposta.ok && Array.isArray(dados.categorias)) setCategorias(dados.categorias);
     }
@@ -262,7 +263,7 @@ export default function App({ api }) {
                 formulario.append(campo, valor);
             }
         });
-        const resposta = await fetch(`${api}${rota}`, { method: metodo, credentials: "include", body: formulario });
+        const resposta = await fetch(`${API_URL}${rota}`, { method: metodo, credentials: "include", body: formulario });
         const retorno = await resposta.json().catch(() => ({}));
         if (!resposta.ok || !retorno.sucesso) throw new Error(retorno.mensagem || retorno.erro || "Não foi possível concluir o cadastro.");
         return retorno;
@@ -291,7 +292,7 @@ export default function App({ api }) {
                 {/* Exibe o login na rota inicial e fornece API e callback de sucesso. */}
                 <Route
                     path="/"
-                    element={<Login apiUrl={api} onLogin={registrarLogin} />}
+                    element={<Login onLogin={registrarLogin} />}
                 />
                 {/* Protege a dashboard: sem usuário, volta para o login. */}
                 <Route
@@ -329,9 +330,7 @@ export default function App({ api }) {
                     element={
                         usuario
                             ? <DocumentosProjetos
-                                usuario={usuario}
-                                apiUrl={api}
-                                projetos={projetos}
+                                usuario={usuario}                                projetos={projetos}
                                 onLogout={encerrarSessao}
                             />
                             : redirecionarParaLogin
@@ -342,9 +341,7 @@ export default function App({ api }) {
                     element={
                         usuario
                             ? <Relatorios
-                                usuario={usuario}
-                                apiUrl={api}
-                                entradas={entradas}
+                                usuario={usuario}                                entradas={entradas}
                                 despesas={despesas}
                                 doacoes={doacoes}
                                 emprestimos={emprestimos}
@@ -358,7 +355,7 @@ export default function App({ api }) {
                     path="/entradas"
                     element={
                         usuario
-                            ? <Entradas usuario={usuario} apiUrl={api} entradas={entradas} categorias={categorias} projetos={projetos} origens={origens} onAtualizar={atualizarEntrada} onLogout={encerrarSessao} />
+                            ? <Entradas usuario={usuario} entradas={entradas} categorias={categorias} projetos={projetos} origens={origens} onAtualizar={atualizarEntrada} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -367,9 +364,7 @@ export default function App({ api }) {
                     element={
                         usuario
                             ? <NovaEntrada
-                                usuario={usuario}
-                                apiUrl={api}
-                                categorias={categorias}
+                                usuario={usuario}                                categorias={categorias}
                                 origens={origens}
                                 onRegistrar={registrarEntrada}
                                 onLogout={encerrarSessao}
@@ -381,7 +376,7 @@ export default function App({ api }) {
                     path="/pendencias"
                     element={
                         usuario
-                            ? <Pendencias usuario={usuario} apiUrl={api} projetos={projetos} onPagamento={() => setVersaoFinanceiro((atual) => atual + 1)} onLogout={encerrarSessao} />
+                            ? <Pendencias usuario={usuario} onPagamento={() => setVersaoFinanceiro((atual) => atual + 1)} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -389,7 +384,7 @@ export default function App({ api }) {
                     path="/despesas"
                     element={
                         usuario
-                            ? <Despesas usuario={usuario} apiUrl={api} despesas={despesas} categorias={categorias} projetos={projetos} origens={origens} onAtualizar={atualizarDespesa} onLogout={encerrarSessao} />
+                            ? <Despesas usuario={usuario} despesas={despesas} categorias={categorias} projetos={projetos} origens={origens} onAtualizar={atualizarDespesa} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -397,7 +392,7 @@ export default function App({ api }) {
                     path="/despesas/nova"
                     element={
                         usuario
-                            ? <NovaDespesa usuario={usuario} apiUrl={api} categorias={categorias} projetos={projetos} origens={origens} onRegistrar={registrarDespesa} onLogout={encerrarSessao} />
+                            ? <NovaDespesa usuario={usuario} categorias={categorias} projetos={projetos} origens={origens} onRegistrar={registrarDespesa} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -420,7 +415,7 @@ export default function App({ api }) {
                     path="/doacoes"
                     element={
                         usuario
-                            ? <Doacoes usuario={usuario} apiUrl={api} doacoes={doacoes} onAtualizar={atualizarDoacao} onLogout={encerrarSessao} />
+                            ? <Doacoes usuario={usuario} doacoes={doacoes} onAtualizar={atualizarDoacao} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -428,7 +423,7 @@ export default function App({ api }) {
                     path="/doacoes/nova"
                     element={
                         usuario
-                            ? <NovaDoacao usuario={usuario} apiUrl={api} opcoes={{}} onRegistrar={registrarDoacao} onLogout={encerrarSessao} />
+                            ? <NovaDoacao usuario={usuario} opcoes={{}} onRegistrar={registrarDoacao} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -444,7 +439,7 @@ export default function App({ api }) {
                     path="/emprestimos/novo"
                     element={
                         usuario
-                            ? <NovoEmprestimo usuario={usuario} apiUrl={api} onRegistrar={registrarEmprestimo} onLogout={encerrarSessao} />
+                            ? <NovoEmprestimo usuario={usuario} onRegistrar={registrarEmprestimo} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
@@ -453,9 +448,7 @@ export default function App({ api }) {
                     element={
                         usuario
                             ? <Configuracoes
-                                usuario={usuario}
-                                apiUrl={api}
-                                onUsuarioAtualizado={atualizarUsuarioLogado}
+                                usuario={usuario}                                onUsuarioAtualizado={atualizarUsuarioLogado}
                                 onLogout={encerrarSessao}
                             />
                             : redirecionarParaLogin
@@ -467,9 +460,7 @@ export default function App({ api }) {
                     element={
                         usuarioAdministrador
                             ? <Usuarios
-                                usuario={usuario}
-                                apiUrl={api}
-                                onSessaoInvalida={encerrarSessao}
+                                usuario={usuario}                                onSessaoInvalida={encerrarSessao}
                                 onLogout={encerrarSessao}
                             />
                             : usuario
@@ -483,9 +474,7 @@ export default function App({ api }) {
                     element={
                         usuarioAdministrador
                             ? <CadastroUsuario
-                                usuario={usuario}
-                                apiUrl={api}
-                                onLogout={encerrarSessao}
+                                usuario={usuario}                                onLogout={encerrarSessao}
                             />
                             : usuario
                                 ? <Navigate to="/dashboard" replace />

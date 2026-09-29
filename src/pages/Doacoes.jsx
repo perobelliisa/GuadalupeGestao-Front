@@ -32,7 +32,7 @@ function nomeTipoDoacao(tipo) {
 }
 
 // Filtra, resume e mostra as doações cadastradas.
-export default function Doacoes({ usuario, apiUrl, doacoes = [], onAtualizar, onLogout }) {
+export default function Doacoes({ usuario, doacoes = [], onAtualizar, onLogout }) {
     // Estados dos dois filtros e da doação que o usuário escolheu editar.
     const navigate = useNavigate();
     const [tipo, setTipo] = useState("");
@@ -90,6 +90,6 @@ export default function Doacoes({ usuario, apiUrl, doacoes = [], onAtualizar, on
         <section className="entradas-summary"><article><span className="summary-icon donation">+</span><div><small>Doações no período</small><strong>{doacoes.length}</strong></div></article><article><span className="summary-icon blue">#</span><div><small>Doadores distintos</small><strong>{doadores.length}</strong></div></article><article><span className="summary-icon material">#</span><div><small>Com quantidade informada</small><strong>{comQuantidade}</strong></div></article></section>
         <section className="doacoes-filters"><select value={tipo} onChange={(event) => setTipo(event.target.value)}><option value="">Todos os tipos</option>{opcoesDeTipo}</select><select value={projeto} onChange={(event) => setProjeto(event.target.value)}><option value="">Todos os projetos</option>{opcoesDeProjeto}</select></section>
         <section className="doacoes-table-card">{doacoesMostradas.length === 0 ? <div className="entradas-empty"><strong>Nenhuma doação encontrada</strong><span>As doações cadastradas aparecerão aqui.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>DOADOR</th><th>DATA</th><th>TIPO</th><th>VALOR</th><th>QUANTIDADE</th><th>PROJETO</th><th>DESCRIÇÃO</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
-        {selecionada && <EditorCadastroFinanceiro item={selecionada} tipo="Doação" apiUrl={apiUrl} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}
+        {selecionada && <EditorCadastroFinanceiro item={selecionada} tipo="Doação" onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}
     </main></div></div>;
 }

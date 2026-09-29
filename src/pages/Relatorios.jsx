@@ -1,3 +1,4 @@
+import { API_URL } from "../config/api.js";
 import { useMemo, useState } from "react";
 import { Download, FileBarChart, FolderKanban, Heart, Printer, Search, WalletCards } from "lucide-react";
 import Sidebar from "../../components/Sidebar.jsx";
@@ -46,7 +47,7 @@ function criarLinhas(entradas, despesas, doacoes, emprestimos, projetos) {
     ].sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
 }
 
-export default function Relatorios({ usuario, apiUrl, entradas = [], despesas = [], doacoes = [], emprestimos = [], projetos = [], onLogout }) {
+export default function Relatorios({ usuario, entradas = [], despesas = [], doacoes = [], emprestimos = [], projetos = [], onLogout }) {
     const [tipos, setTipos] = useState(TIPOS.map((tipo) => tipo.id));
     const [inicio, setInicio] = useState("");
     const [fim, setFim] = useState("");
@@ -107,7 +108,7 @@ export default function Relatorios({ usuario, apiUrl, entradas = [], despesas = 
             if (inicio) parametros.set("inicio", inicio);
             if (fim) parametros.set("fim", fim);
             if (projeto) parametros.set("projeto", projeto);
-            const resposta = await fetch(`${apiUrl}/relatorios/pdf?${parametros}`, { credentials: "include" });
+            const resposta = await fetch(`${API_URL}/relatorios/pdf?${parametros}`, { credentials: "include" });
             if (!resposta.ok) {
                 const dados = await resposta.json().catch(() => ({}));
                 throw new Error(dados.mensagem || dados.erro || "Não foi possível gerar o PDF.");

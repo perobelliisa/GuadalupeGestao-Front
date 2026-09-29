@@ -1,3 +1,4 @@
+import { API_URL } from "../config/api.js";
 // Esta página permite visualizar e alterar os dados do usuário conectado.
 import Sidebar from "../../components/Sidebar.jsx";
 import Header from "../../components/Header.jsx";
@@ -7,7 +8,7 @@ import "./Dashboard.css";
 import "./Configuracoes.css";
 
 // Exibe os dados da conta atual e envia alterações para a API.
-export default function Configuracoes({ usuario, apiUrl, onUsuarioAtualizado, onLogout }) {
+export default function Configuracoes({ usuario, onUsuarioAtualizado, onLogout }) {
     // Estados que guardam os dados do formulário e o que a tela está fazendo.
     const [dados, setDados] = useState(null);
     const [carregando, setCarregando] = useState(true);
@@ -19,7 +20,7 @@ export default function Configuracoes({ usuario, apiUrl, onUsuarioAtualizado, on
         const controller = new AbortController();
         async function carregarConta() {
             try {
-                const resposta = await fetch(`${apiUrl}/minha-conta`, { credentials: "include", signal: controller.signal });
+                const resposta = await fetch(`${API_URL}/minha-conta`, { credentials: "include", signal: controller.signal });
                 const retorno = await resposta.json().catch(() => ({}));
                 if (!resposta.ok || !retorno.sucesso) throw new Error(retorno.mensagem || retorno.erro || "Não foi possível carregar sua conta.");
                 const conta = retorno.usuario;
@@ -33,7 +34,7 @@ export default function Configuracoes({ usuario, apiUrl, onUsuarioAtualizado, on
         }
         carregarConta();
         return () => controller.abort();
-    }, [apiUrl, usuario.id]);
+    }, [usuario.id]);
 
     // Atualiza apenas o campo que o usuário acabou de alterar.
     function alterar(campo, valor) {
@@ -52,7 +53,7 @@ export default function Configuracoes({ usuario, apiUrl, onUsuarioAtualizado, on
         formulario.append("status", dados.status);
 
         try {
-            const resposta = await fetch(`${apiUrl}/minha-conta`, { method: "PUT", credentials: "include", body: formulario });
+            const resposta = await fetch(`${API_URL}/minha-conta`, { method: "PUT", credentials: "include", body: formulario });
             const retorno = await resposta.json().catch(() => ({}));
             if (!resposta.ok || !retorno.sucesso) throw new Error(retorno.mensagem || retorno.erro || "Não foi possível salvar as alterações.");
             onUsuarioAtualizado?.(dados);

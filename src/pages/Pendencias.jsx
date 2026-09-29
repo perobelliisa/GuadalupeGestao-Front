@@ -1,3 +1,4 @@
+import { API_URL } from "../config/api.js";
 // Importa hooks para memorizar funções, executar efeitos, guardar referências e controlar os estados da tela.
 import { useCallback, useEffect, useRef, useState } from "react";
 // Importa o menu lateral compartilhado pelas páginas.
@@ -33,8 +34,9 @@ function prazo(dias) {
     return `Vence em ${dias} dia(s)`;
 }
 
-// Exporta a página: recebe usuário, URL da API, projetos (lista vazia por padrão) e callbacks de pagamento e saída.
-export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento, onLogout }) {
+// Recebe o usuário e os callbacks de pagamento e saída.
+export default function Pendencias({ usuario, onPagamento, onLogout }) {
+    const [projetos, setProjetos] = useState([]);
     // Guarda as ocorrências abertas; setPendencias atualiza a lista e provoca uma nova renderização.
     const [pendencias, setPendencias] = useState([]);
     const [filtros, setFiltros] = useState(filtrosVazios);
@@ -56,7 +58,7 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
     // Mantém uma trava imediata para cliques repetidos, sem esperar a atualização visual do React.
     const pagamentoEmCurso = useRef(false);
 
-    // Memoriza esta função assíncrona enquanto apiUrl não mudar, evitando reconfigurar o efeito a cada renderização.
+    // Mantém a função de carregamento estável entre renderizações.
     const carregar = useCallback(async () => {
         // Cancela a consulta de listagem anterior, se existir; ?. evita chamar abort em uma referência nula.
         requisicao.current?.abort();
@@ -71,13 +73,18 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
         // Inicia o bloco protegido para tratar falhas de rede, interpretação da resposta ou validação.
         try {
             // Consulta a lista; credentials envia os cookies de sessão e signal permite cancelar a requisição.
-            const [resposta, respostaEmprestimos] = await Promise.all([
-                fetch(`${apiUrl}/pendencias`, { credentials: "include", signal: controller.signal }),
-                fetch(`${apiUrl}/emprestimos`, { credentials: "include", signal: controller.signal })
+            const [resposta, respostaEmprestimos, respostaProjetos] = await Promise.all([
+                fetch(`${API_URL}/pendencias`, { credentials: "include", signal: controller.signal }),
+                fetch(`${API_URL}/emprestimos`, { credentials: "include", signal: controller.signal }),
+                fetch(`${API_URL}/projetos`, { credentials: "include", signal: controller.signal })
             ]);
             // Aguarda a conversão do corpo JSON da resposta em um objeto JavaScript.
             const dados = await resposta.json();
             const dadosEmprestimos = await respostaEmprestimos.json();
+            const dadosProjetos = await respostaProjetos.json();
+            if (!respostaProjetos.ok || !Array.isArray(dadosProjetos.projetos)) {
+                throw new Error("Não foi possível carregar os projetos. Atualize a lista para tentar novamente.");
+            }
             if (!respostaEmprestimos.ok || !Array.isArray(dadosEmprestimos.emprestimos)) {
                 throw new Error("Não foi possível carregar os responsáveis. Atualize a lista para tentar novamente.");
             }
@@ -88,6 +95,7 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
             }
             // Só aplica a resposta se esta consulta não foi cancelada por uma mais recente ou pela saída da página.
             if (!controller.signal.aborted) {
+                setProjetos(dadosProjetos.projetos);
                 // Substitui a lista exibida pelos dados atualizados recebidos do servidor.
                 const emprestimos = new Map(dadosEmprestimos.emprestimos.map((item) => [String(item.id_emprestimo), item]));
                 setPendencias(dados.pendencias.map((item) => {
@@ -107,8 +115,7 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
             // Encerra o carregamento somente se a consulta não foi cancelada.
             if (!controller.signal.aborted) setCarregando(false);
         }
-    // A dependência apiUrl faz a função ser recriada apenas quando o endereço da API mudar.
-    }, [apiUrl]);
+    }, []);
 
     // Configura a consulta inicial e as atualizações automáticas quando a página é montada.
     useEffect(() => {
@@ -132,7 +139,7 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
             // Interrompe o temporizador criado por este efeito.
             window.clearInterval(intervalo);
         };
-    // Refaz o efeito se a função carregar mudar, por exemplo, quando apiUrl mudar.
+    // Atualiza a lista quando uma nova versão dos pagamentos estiver disponível.
     }, [carregar]);
 
     // Registra o pagamento da ocorrência escolhida após a confirmação do usuário.
@@ -152,7 +159,7 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
         // Inicia o bloco protegido para tratar falhas de rede, interpretação da resposta ou validação.
         try {
             // Monta a rota usando o tipo e o identificador da conta ou empréstimo selecionado.
-            const resposta = await fetch(`${apiUrl}/pendencias/${selecionada.tipo}/${selecionada.id}/pagar`, {
+            const resposta = await fetch(`${API_URL}/pendencias/${selecionada.tipo}/${selecionada.id}/pagar`, {
                 // POST solicita a gravação; include envia a sessão e Content-Type informa que o corpo é JSON.
                 method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
                 // Envia o vencimento exato; o backend verifica se essa ocorrência ainda está aberta antes de pagar.
@@ -197,7 +204,7 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
 
     const periodoInvalido = Boolean(filtros.inicio && filtros.fim && filtros.inicio > filtros.fim);
     const filtradas = filtrarPendencias(pendencias, filtros, nomeProjeto);
-    const projetosDisponiveis = [...new Map(pendencias.map((item) => [String(item.conta ?? "sem-projeto"), nomeProjeto(item.conta)])).entries()]
+    const projetosDisponiveis = projetos.map((projeto) => [String(projeto.id_projeto), projeto.nome])
         .sort((a, b) => String(a[1]).localeCompare(String(b[1]), "pt-BR"));
     const responsaveis = [...new Map(pendencias.map((item) => [String(item.responsavel_id ?? "sem-responsavel"), item.responsavel_nome])).entries()]
         .sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
@@ -220,7 +227,7 @@ export default function Pendencias({ usuario, apiUrl, projetos = [], onPagamento
                     <p className="pendencias-legenda">Alta: vencidas ou até 2 dias • Média: de 3 a 13 dias • Baixa: a partir de 14 dias</p>
                     <section className="pendencias-filtros" aria-label="Buscar e filtrar pendências">
                         <label className="pendencias-busca">Buscar pendências<input type="search" placeholder="Descrição, projeto ou responsável" value={filtros.busca} onChange={(event) => alterarFiltro("busca", event.target.value)} /></label>
-                        <label>Projeto<select value={filtros.projeto} onChange={(event) => alterarFiltro("projeto", event.target.value)}><option value="">Todos os projetos</option>{projetosDisponiveis.map(([id, nome]) => <option key={id} value={id}>{nome === "—" ? "Sem projeto" : nome}</option>)}</select></label>
+                        <label>Projeto<select value={filtros.projeto} onChange={(event) => alterarFiltro("projeto", event.target.value)}><option value="">Todos os projetos</option><option value="sem-projeto">Sem projeto vinculado</option>{projetosDisponiveis.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label>
                         <label>Vencimento a partir de<input type="date" value={filtros.inicio} aria-invalid={periodoInvalido} aria-describedby={periodoInvalido ? "erro-periodo" : undefined} onChange={(event) => alterarFiltro("inicio", event.target.value)} /></label>
                         <label>Vencimento até<input type="date" value={filtros.fim} aria-invalid={periodoInvalido} aria-describedby={periodoInvalido ? "erro-periodo" : undefined} onChange={(event) => alterarFiltro("fim", event.target.value)} /></label>
                         <label>Responsável<select value={filtros.responsavel} onChange={(event) => alterarFiltro("responsavel", event.target.value)}><option value="">Todos os responsáveis</option>{responsaveis.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label>

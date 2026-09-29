@@ -1,3 +1,4 @@
+import { API_URL } from "../config/api.js";
 // Importa as classes visuais exclusivas da página de login.
 import css from "./Login.module.css";
 // useState controla mensagens e o estado de envio do formulário.
@@ -6,9 +7,9 @@ import { useState } from "react";
 // Esta página recebe e valida os dados de acesso antes de entrar no sistema.
 import { useLocation, useNavigate } from "react-router-dom";
 
-// Recebe a URL central da API e o callback que registra o usuário autenticado.
+// Usa a URL central da API e recebe o callback que registra o usuário autenticado.
 // Controla a autenticação e apresenta a tela inicial do sistema.
-export default function Login({ apiUrl, onLogin }) {
+export default function Login({ onLogin }) {
     // Cria a função responsável por navegar entre as rotas.
     const navigate = useNavigate();
     const location = useLocation();
@@ -37,7 +38,7 @@ export default function Login({ apiUrl, onLogin }) {
         // Inicia o bloco que também captura falhas de conexão e validação.
         try {
             // Envia as credenciais para o endpoint de login do backend.
-            const resposta = await fetch(`${apiUrl}/login`, {
+            const resposta = await fetch(`${API_URL}/login`, {
                 // Usa POST porque as credenciais serão enviadas no corpo.
                 method: "POST",
                 // Informa ao Flask que o corpo está no formato JSON.

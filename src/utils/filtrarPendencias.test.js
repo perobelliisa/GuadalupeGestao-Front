@@ -11,6 +11,15 @@ const itens = [
 const nome = (id) => id === 0 ? "Missão Guadalupe" : "Casa São José";
 const filtrar = (filtros) => filtrarPendencias(itens, { ...vazios, ...filtros }, nome).map((item) => item.id);
 
+test("sem projeto inclui conta geral e vínculos ausentes, mantendo projetos específicos separados", () => {
+    const registros = [0, "0", null, undefined, "", 2, "2"].map((conta, id) => ({ id, conta }));
+    const selecionar = (projeto) => filtrarPendencias(registros, { ...vazios, projeto }, nome).map((item) => item.id);
+    assert.deepEqual(selecionar("sem-projeto"), [0, 1, 2, 3, 4]);
+    assert.deepEqual(selecionar("2"), [5, 6]);
+    assert.deepEqual(selecionar("99"), []);
+    assert.equal(selecionar("").length, registros.length);
+});
+
 test("busca ignora acentos e caixa e combina palavras de campos diferentes", () => {
     assert.deepEqual(filtrar({ busca: "  REFORMA joao jose " }), [2, 3]);
     assert.deepEqual(filtrar({ busca: "manutencao" }), [1]);

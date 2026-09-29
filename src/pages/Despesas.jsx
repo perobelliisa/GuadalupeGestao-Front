@@ -44,7 +44,7 @@ function localDoValor(conta, projetos) {
     return projeto?.nome || conta || "-";
 }
 
-export default function Despesas({ usuario, apiUrl, despesas = [], categorias = [], projetos = [], origens = [], onAtualizar, onLogout }) {
+export default function Despesas({ usuario, despesas = [], categorias = [], projetos = [], origens = [], onAtualizar, onLogout }) {
     // Guarda a despesa clicada para mostrar a tela de edição.
     const navigate = useNavigate();
     const [selecionada, setSelecionada] = useState(null);
@@ -80,5 +80,5 @@ export default function Despesas({ usuario, apiUrl, despesas = [], categorias = 
         <div className="entradas-titlebar"><div><h1>Despesas</h1><p>Todos os pagamentos registrados pela Missão</p></div><button type="button" className="entradas-primary" onClick={() => navigate("/despesas/nova")}>+ Nova despesa</button></div>
         <section className="entradas-summary"><article><span className="summary-icon blue">R$</span><div><small>Total pago no período</small><strong>{dinheiro(total)}</strong></div></article><article><span className="summary-icon teal">-</span><div><small>Despesas registradas</small><strong>{despesas.length}</strong></div></article><article><span className="summary-icon green">✓</span><div><small>Pagas</small><strong>{pagas}</strong></div></article></section>
         <section className="entradas-table-card">{despesasMostradas.length === 0 ? <div className="entradas-empty"><strong>Nenhuma despesa encontrada</strong><span>As despesas aparecerão aqui após o primeiro registro.</span></div> : <div className="entradas-table-scroll"><table><thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>FORNECEDOR</th><th>CATEGORIA</th><th>PROJETO / CASA DE MISSÃO</th><th>VALOR</th><th>FORMA</th><th>STATUS</th></tr></thead><tbody>{linhasDaTabela}</tbody></table></div>}</section>
-    </main></div>{selecionada && <EditorMovimentacao item={selecionada} tipo="Despesa" apiUrl={apiUrl} categorias={categorias} projetos={projetos} origens={origens} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}</div>;
+    </main></div>{selecionada && <EditorMovimentacao item={selecionada} tipo="Despesa" categorias={categorias} projetos={projetos} origens={origens} onFechar={() => setSelecionada(null)} onSalvar={onAtualizar} />}</div>;
 }

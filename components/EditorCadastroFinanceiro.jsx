@@ -1,9 +1,10 @@
+import { API_URL } from "../src/config/api.js";
 import { Save, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import AnexoMovimentacao from "./AnexoMovimentacao.jsx";
 import "./EditorMovimentacao.css";
 
-export default function EditorCadastroFinanceiro({ item, tipo, apiUrl, onFechar, onSalvar }) {
+export default function EditorCadastroFinanceiro({ item, tipo, onFechar, onSalvar }) {
     const [projetos, setProjetos] = useState([]);
     const [processando, setProcessando] = useState(false);
     const [erro, setErro] = useState("");
@@ -27,7 +28,7 @@ export default function EditorCadastroFinanceiro({ item, tipo, apiUrl, onFechar,
         const partesAnexo = item.anexo.split("/");
         nomeAnexo = partesAnexo[partesAnexo.length - 1];
         if (item.anexo.endsWith(".jpg") || item.anexo.endsWith(".jpeg") || item.anexo.endsWith(".png")) {
-            imagemAnexo = `${apiUrl}${item.anexo}`;
+            imagemAnexo = `${API_URL}${item.anexo}`;
         }
     }
 
@@ -35,7 +36,7 @@ export default function EditorCadastroFinanceiro({ item, tipo, apiUrl, onFechar,
         const controller = new AbortController();
         async function carregarProjetos() {
             try {
-                const resposta = await fetch(`${apiUrl}/projetos`, { credentials: "include", signal: controller.signal });
+                const resposta = await fetch(`${API_URL}/projetos`, { credentials: "include", signal: controller.signal });
                 const texto = await resposta.text();
                 let dados = {};
                 if (texto) dados = JSON.parse(texto);
@@ -62,7 +63,7 @@ export default function EditorCadastroFinanceiro({ item, tipo, apiUrl, onFechar,
         }
         carregarProjetos();
         return () => controller.abort();
-    }, [apiUrl, item.id_projeto, item.projeto_nome]);
+    }, [item.id_projeto, item.projeto_nome]);
 
     async function salvar(event) {
         event.preventDefault();
