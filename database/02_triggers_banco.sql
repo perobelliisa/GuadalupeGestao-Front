@@ -1,5 +1,5 @@
 -- ARQUIVO DE AUDITORIA: execute conectado ao banco BANCO.FDB.
--- Cada tabela tem tres gatilhos: INSERT (inclusao), UPDATE (alteracao) e DELETE (exclusao).
+-- Cada tabela tem tres gatilhos: INSERT (AFTER), UPDATE (BEFORE) e DELETE (BEFORE).
 -- TG = trigger/gatilho; AI = AFTER INSERT; AU = AFTER UPDATE; AD = AFTER DELETE.
 -- NEW significa os valores que a linha tera depois da operacao; OLD significa os valores anteriores.
 -- V_ANTIGO e V_NOVO sao variaveis de texto que guardam os valores antigos e novos dos campos.
@@ -11,15 +11,17 @@
 -- NULLIF(valor, '') transforma texto vazio em NULL; assim COALESCE consegue usar o valor alternativo.
 -- RDB$GET_CONTEXT le o ID do usuario e o dispositivo que o backend informou para esta conexao.
 -- SELECT U.EMAIL procura o email do usuario no banco principal, para identifica-lo no log.
--- EXECUTE STATEMENT executa um INSERT no outro banco. Os ? sao espacos para valores; a lista abaixo os preenche na ordem.
--- Usar ? evita quebrar o SQL quando um dado tem apostrofo (ex.: D'Avila); e o mesmo INSERT externo do seu modelo.
+-- EXECUTE STATEMENT executa no BANCOLOG um INSERT montado como texto por concatenacao, como no modelo da aula.
+-- REPLACE duplica apostrofos que estejam nos dados para que eles nao fechem a string SQL antes da hora.
 -- ON EXTERNAL DATA SOURCE aponta para o BANCOLOG.FDB separado; usuario e senha autorizam a conexao a ele.
 -- CURRENT_TIMESTAMP registra a data e o horario em que o gatilho foi executado.
+-- UPDATE/DELETE rodam BEFORE; o log registra a tentativa antes da conclusao da operacao.
 -- O valor FOR 450 limita cada campo individual; o registro final ainda e limitado a 8191 caracteres.
 -- Em USUARIO, SENHA_HASH e omitido de proposito para nao copiar credenciais para o historico.
 -- SET TERM troca temporariamente o final de comando para ^; assim os ; dentro do gatilho nao encerram o CREATE TRIGGER.
 
-SET TERM ^ ; -- Troca o terminador para ^ enquanto cada gatilho e criado.
+-- Troca o terminador para ^ enquanto cada gatilho e criado.
+SET TERM ^ ;
 
 CREATE OR ALTER TRIGGER TG_AI_CATEGORIA -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR CATEGORIA -- Informa em qual tabela este gatilho vai observar alteracoes.
@@ -62,14 +64,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, NULLIF(NEW.DISPOSITIVO, ''), 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'CATEGORIA', 'ID_CATEGORIA - NOME - STATUS - TIPO - DESCRICAO - ID_USUARIO - DISPOSITIVO', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''CATEGORIA'', ''ID_CATEGORIA - NOME - STATUS - TIPO - DESCRICAO - ID_USUARIO - DISPOSITIVO'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -78,7 +82,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_CATEGORIA -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR CATEGORIA -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -123,14 +127,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, NULLIF(NEW.DISPOSITIVO, ''), 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'CATEGORIA', 'ID_CATEGORIA - NOME - STATUS - TIPO - DESCRICAO - ID_USUARIO - DISPOSITIVO', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''CATEGORIA'', ''ID_CATEGORIA - NOME - STATUS - TIPO - DESCRICAO - ID_USUARIO - DISPOSITIVO'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -139,7 +145,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_CATEGORIA -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR CATEGORIA -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -178,14 +184,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, NULLIF(OLD.DISPOSITIVO, ''), 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'CATEGORIA', 'ID_CATEGORIA - NOME - STATUS - TIPO - DESCRICAO - ID_USUARIO - DISPOSITIVO', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''CATEGORIA'', ''ID_CATEGORIA - NOME - STATUS - TIPO - DESCRICAO - ID_USUARIO - DISPOSITIVO'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -233,14 +241,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'CONFIGURACAO', 'ID_CONFIGURACAO - INSTITUICAO - CNPJ - EMAIL - ENDERECO - FORMA_PAGAMENTO - UNIDADE_MEDIDA', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''CONFIGURACAO'', ''ID_CONFIGURACAO - INSTITUICAO - CNPJ - EMAIL - ENDERECO - FORMA_PAGAMENTO - UNIDADE_MEDIDA'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -249,7 +259,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_CONFIGURACAO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR CONFIGURACAO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -294,14 +304,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'CONFIGURACAO', 'ID_CONFIGURACAO - INSTITUICAO - CNPJ - EMAIL - ENDERECO - FORMA_PAGAMENTO - UNIDADE_MEDIDA', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''CONFIGURACAO'', ''ID_CONFIGURACAO - INSTITUICAO - CNPJ - EMAIL - ENDERECO - FORMA_PAGAMENTO - UNIDADE_MEDIDA'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -310,7 +322,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_CONFIGURACAO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR CONFIGURACAO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -349,14 +361,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'CONFIGURACAO', 'ID_CONFIGURACAO - INSTITUICAO - CNPJ - EMAIL - ENDERECO - FORMA_PAGAMENTO - UNIDADE_MEDIDA', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''CONFIGURACAO'', ''ID_CONFIGURACAO - INSTITUICAO - CNPJ - EMAIL - ENDERECO - FORMA_PAGAMENTO - UNIDADE_MEDIDA'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -405,14 +419,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'DOACAO', 'ID_DOACAO - ID_PROJETO - DOADOR - DIA - TIPO - VALOR - QUANTIDADE - DESCRICAO', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''DOACAO'', ''ID_DOACAO - ID_PROJETO - DOADOR - DIA - TIPO - VALOR - QUANTIDADE - DESCRICAO'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -421,7 +437,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_DOACAO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR DOACAO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -468,14 +484,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'DOACAO', 'ID_DOACAO - ID_PROJETO - DOADOR - DIA - TIPO - VALOR - QUANTIDADE - DESCRICAO', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''DOACAO'', ''ID_DOACAO - ID_PROJETO - DOADOR - DIA - TIPO - VALOR - QUANTIDADE - DESCRICAO'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -484,7 +502,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_DOACAO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR DOACAO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -524,14 +542,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'DOACAO', 'ID_DOACAO - ID_PROJETO - DOADOR - DIA - TIPO - VALOR - QUANTIDADE - DESCRICAO', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''DOACAO'', ''ID_DOACAO - ID_PROJETO - DOADOR - DIA - TIPO - VALOR - QUANTIDADE - DESCRICAO'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -577,14 +597,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'DOCUMENTO', 'ID_DOCUMENTO - ID_USUARIO - NOME - CAMINHO - DATA_ENVIO', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''DOCUMENTO'', ''ID_DOCUMENTO - ID_USUARIO - NOME - CAMINHO - DATA_ENVIO'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -593,7 +615,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_DOCUMENTO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR DOCUMENTO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -634,14 +656,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'DOCUMENTO', 'ID_DOCUMENTO - ID_USUARIO - NOME - CAMINHO - DATA_ENVIO', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''DOCUMENTO'', ''ID_DOCUMENTO - ID_USUARIO - NOME - CAMINHO - DATA_ENVIO'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -650,7 +674,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_DOCUMENTO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR DOCUMENTO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -687,14 +711,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'DOCUMENTO', 'ID_DOCUMENTO - ID_USUARIO - NOME - CAMINHO - DATA_ENVIO', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''DOCUMENTO'', ''ID_DOCUMENTO - ID_USUARIO - NOME - CAMINHO - DATA_ENVIO'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -737,14 +763,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'DOCUMENTO_PROJETO', 'ID_DOCUMENTO - ID_PROJETO', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''DOCUMENTO_PROJETO'', ''ID_DOCUMENTO - ID_PROJETO'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -753,7 +781,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_DOCUMENTO_PROJETO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR DOCUMENTO_PROJETO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -788,14 +816,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'DOCUMENTO_PROJETO', 'ID_DOCUMENTO - ID_PROJETO', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''DOCUMENTO_PROJETO'', ''ID_DOCUMENTO - ID_PROJETO'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -804,7 +834,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_DOCUMENTO_PROJETO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR DOCUMENTO_PROJETO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -838,14 +868,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'DOCUMENTO_PROJETO', 'ID_DOCUMENTO - ID_PROJETO', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''DOCUMENTO_PROJETO'', ''ID_DOCUMENTO - ID_PROJETO'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -897,14 +929,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'EMPRESTIMO', 'PARCELAS_PAGAS - ID_EMPRESTIMO - ID_PROJETO - ID_USUARIO - FINALIDADE - VALOR - DIA - DEVOLUCAO - PARCELAS - VALIDADE - ORIGEM', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''EMPRESTIMO'', ''PARCELAS_PAGAS - ID_EMPRESTIMO - ID_PROJETO - ID_USUARIO - FINALIDADE - VALOR - DIA - DEVOLUCAO - PARCELAS - VALIDADE - ORIGEM'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -913,7 +947,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_EMPRESTIMO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR EMPRESTIMO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -966,14 +1000,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'EMPRESTIMO', 'PARCELAS_PAGAS - ID_EMPRESTIMO - ID_PROJETO - ID_USUARIO - FINALIDADE - VALOR - DIA - DEVOLUCAO - PARCELAS - VALIDADE - ORIGEM', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''EMPRESTIMO'', ''PARCELAS_PAGAS - ID_EMPRESTIMO - ID_PROJETO - ID_USUARIO - FINALIDADE - VALOR - DIA - DEVOLUCAO - PARCELAS - VALIDADE - ORIGEM'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -982,7 +1018,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_EMPRESTIMO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR EMPRESTIMO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1025,14 +1061,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'EMPRESTIMO', 'PARCELAS_PAGAS - ID_EMPRESTIMO - ID_PROJETO - ID_USUARIO - FINALIDADE - VALOR - DIA - DEVOLUCAO - PARCELAS - VALIDADE - ORIGEM', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''EMPRESTIMO'', ''PARCELAS_PAGAS - ID_EMPRESTIMO - ID_PROJETO - ID_USUARIO - FINALIDADE - VALOR - DIA - DEVOLUCAO - PARCELAS - VALIDADE - ORIGEM'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1077,14 +1115,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'ITEM_DOACAO', 'ID_DOACAO - ID_PRODUTO - ID_ITEM_DOACAO - QUANTIDADE', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''ITEM_DOACAO'', ''ID_DOACAO - ID_PRODUTO - ID_ITEM_DOACAO - QUANTIDADE'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1093,7 +1133,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_ITEM_DOACAO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR ITEM_DOACAO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1132,14 +1172,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'ITEM_DOACAO', 'ID_DOACAO - ID_PRODUTO - ID_ITEM_DOACAO - QUANTIDADE', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''ITEM_DOACAO'', ''ID_DOACAO - ID_PRODUTO - ID_ITEM_DOACAO - QUANTIDADE'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1148,7 +1190,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_ITEM_DOACAO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR ITEM_DOACAO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1184,14 +1226,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'ITEM_DOACAO', 'ID_DOACAO - ID_PRODUTO - ID_ITEM_DOACAO - QUANTIDADE', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''ITEM_DOACAO'', ''ID_DOACAO - ID_PRODUTO - ID_ITEM_DOACAO - QUANTIDADE'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1248,14 +1292,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'LIVRO_CAIXA', 'ID_LIVRO_CAIXA - ID_CATEGORIA - DESCRICAO - TIPO - VALOR - DIA - VENCIMENTO - FORNECEDOR - STATUS - RECORRENCIA - DIA_INICIO - DIA_FIM - CONTA - ORIGEM - FORMA_PAGAMENTO - OBSERVACAO', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''LIVRO_CAIXA'', ''ID_LIVRO_CAIXA - ID_CATEGORIA - DESCRICAO - TIPO - VALOR - DIA - VENCIMENTO - FORNECEDOR - STATUS - RECORRENCIA - DIA_INICIO - DIA_FIM - CONTA - ORIGEM - FORMA_PAGAMENTO - OBSERVACAO'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1264,7 +1310,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_LIVRO_CAIXA -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR LIVRO_CAIXA -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1327,14 +1373,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'LIVRO_CAIXA', 'ID_LIVRO_CAIXA - ID_CATEGORIA - DESCRICAO - TIPO - VALOR - DIA - VENCIMENTO - FORNECEDOR - STATUS - RECORRENCIA - DIA_INICIO - DIA_FIM - CONTA - ORIGEM - FORMA_PAGAMENTO - OBSERVACAO', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''LIVRO_CAIXA'', ''ID_LIVRO_CAIXA - ID_CATEGORIA - DESCRICAO - TIPO - VALOR - DIA - VENCIMENTO - FORNECEDOR - STATUS - RECORRENCIA - DIA_INICIO - DIA_FIM - CONTA - ORIGEM - FORMA_PAGAMENTO - OBSERVACAO'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1343,7 +1391,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_LIVRO_CAIXA -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR LIVRO_CAIXA -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1391,14 +1439,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'LIVRO_CAIXA', 'ID_LIVRO_CAIXA - ID_CATEGORIA - DESCRICAO - TIPO - VALOR - DIA - VENCIMENTO - FORNECEDOR - STATUS - RECORRENCIA - DIA_INICIO - DIA_FIM - CONTA - ORIGEM - FORMA_PAGAMENTO - OBSERVACAO', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''LIVRO_CAIXA'', ''ID_LIVRO_CAIXA - ID_CATEGORIA - DESCRICAO - TIPO - VALOR - DIA - VENCIMENTO - FORNECEDOR - STATUS - RECORRENCIA - DIA_INICIO - DIA_FIM - CONTA - ORIGEM - FORMA_PAGAMENTO - OBSERVACAO'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1442,14 +1492,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'PAGAMENTO_RECORRENCIA', 'ID_ORIGEM - VENCIMENTO - ID_PAGAMENTO', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''PAGAMENTO_RECORRENCIA'', ''ID_ORIGEM - VENCIMENTO - ID_PAGAMENTO'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1458,7 +1510,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_PAGAMENTO_RECORRENCIA -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR PAGAMENTO_RECORRENCIA -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1495,14 +1547,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'PAGAMENTO_RECORRENCIA', 'ID_ORIGEM - VENCIMENTO - ID_PAGAMENTO', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''PAGAMENTO_RECORRENCIA'', ''ID_ORIGEM - VENCIMENTO - ID_PAGAMENTO'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1511,7 +1565,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_PAGAMENTO_RECORRENCIA -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR PAGAMENTO_RECORRENCIA -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1546,14 +1600,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'PAGAMENTO_RECORRENCIA', 'ID_ORIGEM - VENCIMENTO - ID_PAGAMENTO', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''PAGAMENTO_RECORRENCIA'', ''ID_ORIGEM - VENCIMENTO - ID_PAGAMENTO'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1597,14 +1653,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'PRODUTO', 'ID_PRODUTO - NOME - DESCRICAO', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''PRODUTO'', ''ID_PRODUTO - NOME - DESCRICAO'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1613,7 +1671,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_PRODUTO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR PRODUTO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1650,14 +1708,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'PRODUTO', 'ID_PRODUTO - NOME - DESCRICAO', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''PRODUTO'', ''ID_PRODUTO - NOME - DESCRICAO'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1666,7 +1726,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_PRODUTO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR PRODUTO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1701,14 +1761,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'PRODUTO', 'ID_PRODUTO - NOME - DESCRICAO', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''PRODUTO'', ''ID_PRODUTO - NOME - DESCRICAO'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1753,14 +1815,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'PROJETO', 'ID_PROJETO - NOME - ORCAMENTO - DESCRICAO', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''PROJETO'', ''ID_PROJETO - NOME - ORCAMENTO - DESCRICAO'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1769,7 +1833,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_PROJETO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR PROJETO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1808,14 +1872,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'PROJETO', 'ID_PROJETO - NOME - ORCAMENTO - DESCRICAO', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''PROJETO'', ''ID_PROJETO - NOME - ORCAMENTO - DESCRICAO'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1824,7 +1890,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_PROJETO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR PROJETO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1860,14 +1926,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'PROJETO', 'ID_PROJETO - NOME - ORCAMENTO - DESCRICAO', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''PROJETO'', ''ID_PROJETO - NOME - ORCAMENTO - DESCRICAO'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1914,14 +1982,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'USUARIO', 'ID_USUARIO - NOME - EMAIL - SENHA_HASH - STATUS - TIPO (SENHA_HASH OMITIDO)', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''USUARIO'', ''ID_USUARIO - NOME - EMAIL - SENHA_HASH - STATUS - TIPO (SENHA_HASH OMITIDO)'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1930,7 +2000,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_USUARIO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR USUARIO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -1973,14 +2043,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'USUARIO', 'ID_USUARIO - NOME - EMAIL - SENHA_HASH - STATUS - TIPO (SENHA_HASH OMITIDO)', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''USUARIO'', ''ID_USUARIO - NOME - EMAIL - SENHA_HASH - STATUS - TIPO (SENHA_HASH OMITIDO)'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -1989,7 +2061,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_USUARIO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR USUARIO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -2027,14 +2099,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'USUARIO', 'ID_USUARIO - NOME - EMAIL - SENHA_HASH - STATUS - TIPO (SENHA_HASH OMITIDO)', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''USUARIO'', ''ID_USUARIO - NOME - EMAIL - SENHA_HASH - STATUS - TIPO (SENHA_HASH OMITIDO)'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -2077,14 +2151,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'USUARIO_PROJETO', 'ID_USUARIO - ID_PROJETO', 'INSERT', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''USUARIO_PROJETO'', ''ID_USUARIO - ID_PROJETO'', ''INSERT'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -2093,7 +2169,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AU_USUARIO_PROJETO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR USUARIO_PROJETO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER UPDATE -- Executa depois de uma alteracao.
+ACTIVE BEFORE UPDATE -- Executa antes da alteracao; OLD sao os valores atuais e NEW os valores propostos.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -2128,14 +2204,16 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'USUARIO_PROJETO', 'ID_USUARIO - ID_PROJETO', 'UPDATE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''USUARIO_PROJETO'', ''ID_USUARIO - ID_PROJETO'', ''UPDATE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
@@ -2144,7 +2222,7 @@ END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
 CREATE OR ALTER TRIGGER TG_AD_USUARIO_PROJETO -- Cria o gatilho ou atualiza sua definicao se ele ja existir.
 FOR USUARIO_PROJETO -- Informa em qual tabela este gatilho vai observar alteracoes.
-ACTIVE AFTER DELETE -- Executa depois de uma exclusao.
+ACTIVE BEFORE DELETE -- Executa antes da exclusao, enquanto OLD ainda contem os dados da linha.
 POSITION 100 -- Define a ordem de execucao em relacao a outros gatilhos da tabela.
 AS -- Abaixo ficam as variaveis e as instrucoes do gatilho.
   DECLARE VARIABLE V_ANTIGO VARCHAR(8191); -- Texto que guardara os valores da linha antes da operacao.
@@ -2178,20 +2256,23 @@ BEGIN -- Inicio das instrucoes executadas quando ocorrer o evento.
   V_CONTEXT_DISPOSITIVO = NULLIF(RDB$GET_CONTEXT('USER_SESSION', 'DISPOSITIVO'), ''); -- Le do contexto o dispositivo informado pelo backend.
   V_DISPOSITIVO = COALESCE(V_CONTEXT_DISPOSITIVO, 'NAO INFORMADO'); -- Usa o dispositivo do contexto; sem ele, usa a coluna da linha se existir; senao grava NAO INFORMADO.
 
-  EXECUTE STATEMENT ( -- Inicia o INSERT que sera executado no banco externo BANCOLOG.
-    'INSERT INTO HISTORICO ' || -- Nome da tabela de destino no BANCOLOG.
-    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas do historico que receberao os dados.
-    'VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)' -- VALUES define os dados; cada ? recebe um valor da lista abaixo.
-  )
-  (:V_EMAIL, :V_DISPOSITIVO, 'USUARIO_PROJETO', 'ID_USUARIO - ID_PROJETO', 'DELETE', -- Valores dos ? na mesma ordem: email, dispositivo, tabela, campos, acao, antes e depois.
-   SUBSTRING(COALESCE(:V_ANTIGO, '') FROM 1 FOR 8191), -- Se antes estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
-   SUBSTRING(COALESCE(:V_NOVO, '') FROM 1 FOR 8191)) -- Se depois estiver NULL usa texto vazio; FROM 1 FOR 8191 limita o tamanho ao campo do log.
+  -- Monta o INSERT como texto concatenado, seguindo o modelo ensinado em aula.
+  EXECUTE STATEMENT
+    'INSERT INTO HISTORICO ' || -- Tabela de destino, no banco BANCOLOG.
+    '(EMAIL, DISPOSITIVO, DATA_HORA, TABELA, CAMPO, ACAO, CAMPO_ANTIGO, CAMPO_NOVO) ' || -- Colunas que serao preenchidas.
+    'VALUES (' || -- Inicia a lista de valores do INSERT.
+    '''' || COALESCE(REPLACE(V_EMAIL, '''', ''''''), 'NAO IDENTIFICADO') || '''' || ', ' || -- Email; REPLACE duplica apostrofos e COALESCE define um valor reserva.
+    '''' || COALESCE(REPLACE(V_DISPOSITIVO, '''', ''''''), 'NAO INFORMADO') || '''' || ', CURRENT_TIMESTAMP, ' || -- Dispositivo e data/horario da operacao.
+    '''USUARIO_PROJETO'', ''ID_USUARIO - ID_PROJETO'', ''DELETE'', ' || -- Nome da tabela, campos auditados e tipo de acao.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_ANTIGO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ', ' || -- Valores antigos; SUBSTRING limita o texto ao tamanho da coluna de log.
+    '''' || COALESCE(REPLACE(SUBSTRING(COALESCE(V_NOVO, '') FROM 1 FOR 8191), '''', ''''''), '') || '''' || ')' -- Valores novos e fechamento do INSERT.
   ON EXTERNAL DATA SOURCE -- Diz que o INSERT sera enviado a outro arquivo de banco.
     'localhost:C:\Users\Aluno\Desktop\GuadalupeGestao-Back\BANCOLOG.FDB' -- Caminho de rede/local para o arquivo BANCOLOG.FDB.
   AS USER 'SYSDBA' -- Usuario do Firebird usado para conectar ao BANCOLOG.
   PASSWORD 'sysdba'; -- Senha usada para conectar ao BANCOLOG.
 END^ -- Fim do gatilho; ^ encerra a definicao completa do gatilho.
 
-SET TERM ; ^ -- Restaura ; como terminador normal depois de criar os gatilhos.
+-- Restaura ; como terminador normal depois de criar os gatilhos.
+SET TERM ; ^
 COMMIT; -- Confirma no BANCO as definicoes dos gatilhos criados acima.
 
