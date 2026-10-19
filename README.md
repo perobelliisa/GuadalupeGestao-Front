@@ -24,6 +24,10 @@ API_TARGET=http://ENDERECO_DO_BACKEND:5000
 
 Reinicie o Vite após a alteração. Use uma conta cadastrada no banco do backend escolhido: servidores diferentes podem ter usuários e senhas diferentes.
 
+## Integração Arkhé
+
+Em **Doações**, o painel **Receber doações via Arkhé** gera cobranças e consulta o pagamento pelo backend Flask. A doação e sua entrada no livro-caixa são registradas somente após a confirmação bancária. Configure as credenciais exclusivamente no backend. Consulte [o guia da integração](docs/arkhe.md) para execução, rotas e limitações.
+
 ## Verificações
 
 ```sh

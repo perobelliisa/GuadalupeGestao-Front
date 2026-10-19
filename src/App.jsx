@@ -415,7 +415,7 @@ export default function App() {
                     path="/doacoes"
                     element={
                         usuario
-                            ? <Doacoes usuario={usuario} doacoes={doacoes} onAtualizar={atualizarDoacao} onLogout={encerrarSessao} />
+                            ? <Doacoes usuario={usuario} doacoes={doacoes} projetos={projetos} onRecebimento={() => setVersaoFinanceiro((atual) => atual + 1)} onAtualizar={atualizarDoacao} onLogout={encerrarSessao} />
                             : redirecionarParaLogin
                     }
                 />
