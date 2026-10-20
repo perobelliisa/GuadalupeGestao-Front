@@ -1,0 +1,50 @@
+{
+  "triggers": [
+    [
+      "TG_AI_CATEGORIA",
+      "CATEGORIA",
+      2,
+      0,
+      0,
+      "AS\r\nDECLARE VARIABLE V_EMAIL VARCHAR(100);\r\nBEGIN\r\n\r\n    SELECT U.EMAIL\r\n    FROM USUARIO U\r\n    WHERE U.ID_USUARIO = NEW.ID_USUARIO\r\n    INTO :V_EMAIL;\r\n   \r\n   \r\n   \r\n   \r\n\r\n    EXECUTE STATEMENT\r\n        'INSERT INTO HISTORICO\r\n        (\r\n            EMAIL,\r\n            DISPOSITIVO,\r\n            DATA_HORA,\r\n            TABELA,\r\n            CAMPO,\r\n            ACAO,\r\n            CAMPO_ANTIGO,\r\n            CAMPO_NOVO\r\n        )\r\n        VALUES (\r\n            ''' || V_EMAIL || ''',\r\n            ''' || NEW.DISPOSITIVO || ''',\r\n            CURRENT_TIMESTAMP,\r\n            ''CATEGORIA'',\r\n            ''ID_CATEGORIA - STATUS - TIPO - DESCRICAO'',\r\n            ''INSERT'',\r\n            '''',\r\n            ''' ||\r\n                NEW.ID_CATEGORIA || ' - ' ||\r\n                NEW.STATUS || ' - ' ||\r\n                NEW.TIPO || ' - ' ||\r\n                NEW.DESCRICAO ||\r\n            '''\r\n        )'\r\n\r\n    ON EXTERNAL DATA SOURCE\r\n        'localhost:C:\\Users\\Aluno\\Desktop\\GuadalupeGestao-Back\\BANCOLOG.FDB'\r\n    AS USER 'SYSDBA'\r\n    PASSWORD 'sysdba';\r\n\r\nEND"
+    ]
+  ],
+  "historico_columns": [
+    [
+      "ID_HISTORICO",
+      null
+    ],
+    [
+      "EMAIL",
+      254
+    ],
+    [
+      "DISPOSITIVO",
+      254
+    ],
+    [
+      "DATA_HORA",
+      null
+    ],
+    [
+      "TABELA",
+      254
+    ],
+    [
+      "CAMPO",
+      254
+    ],
+    [
+      "ACAO",
+      254
+    ],
+    [
+      "CAMPO_ANTIGO",
+      254
+    ],
+    [
+      "CAMPO_NOVO",
+      254
+    ]
+  ]
+}

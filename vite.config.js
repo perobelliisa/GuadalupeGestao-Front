@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: env.API_TARGET || 'http://172.20.10.2:5000',
+          target: env.API_TARGET || 'http://10.169.90.81:5000',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
         },
