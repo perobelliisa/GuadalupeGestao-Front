@@ -25,4 +25,5 @@
 .arkhe-qr svg { display: block; width: 240px; max-width: 100%; height: auto; background: white; }
 .arkhe-codigo textarea { min-height: 64px; resize: vertical; overflow-wrap: anywhere; font-family: monospace; font-weight: 400; }
 .arkhe-panel .arkhe-atencao { color: #775005; }
+.arkhe-panel .arkhe-motivo { color: var(--cor-erro-texto); }
 @media (max-width: 700px) { .arkhe-panel { padding: 16px; } .arkhe-form { grid-template-columns: 1fr; padding: 12px; } .arkhe-acoes { width: 100%; } }

@@ -127,9 +127,15 @@ export default function CobrancasArkhe({ projetos = [], onRecebimento }) {
             if (!montado.current) return;
             setSolicitacao(null); setFormulario(false);
             setCobrancas((atuais) => [dados.cobranca, ...atuais.filter((item) => item.id !== dados.cobranca.id)]);
-            setMensagem(dados.cobranca.situacao === "pendente"
-                ? "Cobrança disponível. O pagamento será verificado automaticamente."
-                : "Solicitação recuperada. Confira a situação na lista antes de criar outra cobrança.");
+            if (dados.cobranca.situacao === "falhou") {
+                setErro(dados.cobranca.motivo || "Esta tentativa foi recusada pela Arkhé e não gerou QR Code. O motivo não foi registrado na versão anterior. Uma nova tentativa só acontece ao enviar um novo formulário.");
+            } else if (["criando", "verificar"].includes(dados.cobranca.situacao)) {
+                setErro(dados.cobranca.motivo || "A criação ainda não foi confirmada. Confira na Arkhé antes de gerar outra cobrança.");
+            } else {
+                setMensagem(dados.cobranca.situacao === "pendente"
+                    ? "Cobrança disponível. O pagamento será verificado automaticamente."
+                    : "Pagamento recebido. Confira a doação registrada na lista.");
+            }
         });
     }
     function criar(event) {
@@ -169,6 +175,7 @@ export default function CobrancasArkhe({ projetos = [], onRecebimento }) {
                 <div className="arkhe-resumo"><strong>{item.doador}</strong><strong>{item.valor_livre && item.valor == null ? "Valor escolhido pelo doador" : dinheiro(item.valor)}</strong><span className={`arkhe-situacao ${item.situacao}`}>{ROTULOS[item.situacao] || "Conferir situação"}</span></div>
                 <p>{item.id_cobranca ? `Cobrança Arkhé #${item.id_cobranca}` : "Solicitação sem identificação bancária"}{item.descricao ? ` · ${item.descricao}` : ""}</p>
                 {item.id_projeto && <p>Projeto: {projetos.find((p) => String(p.id_projeto) === String(item.id_projeto))?.nome || item.id_projeto}</p>}
+                {item.situacao === "falhou" && <p className="arkhe-motivo">{item.motivo || "A Arkhé recusou esta tentativa. Nenhum QR Code foi gerado; o motivo não foi registrado na versão anterior."}</p>}
                 {item.situacao === "pendente" && item.codigo_pagamento && <div className="arkhe-qr">
                     <QRCodeSVG value={item.codigo_pagamento} size={240} level="M" marginSize={4} bgColor="#ffffff" fgColor="#000000" role="img" title={`QR Code da cobrança Arkhé #${item.id_cobranca}`} />
                 </div>}

@@ -18,6 +18,7 @@ import CentralProjetos from "./pages/Projetos.jsx";
 import DocumentosProjetos from "./pages/DocumentosProjetos.jsx";
 import Relatorios from "./pages/Relatorios.jsx";
 import Pendencias from "./pages/Pendencias.jsx";
+import Lupe from "./pages/Lupe.jsx";
 import { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
@@ -289,6 +290,9 @@ export default function App() {
         <BrowserRouter>
             {/* Agrupa todas as rotas da aplicação. */}
             <Routes>
+                <Route path="/lupe" element={usuario && [0, 1].includes(Number(usuario.tipo))
+                    ? <Lupe key={usuario.id} usuario={usuario} onLogout={encerrarSessao} onAlteracaoSistema={() => setVersaoFinanceiro(versao => versao + 1)} />
+                    : usuario ? <Navigate to="/dashboard" replace /> : redirecionarParaLogin} />
                 {/* Exibe o login na rota inicial e fornece API e callback de sucesso. */}
                 <Route
                     path="/"

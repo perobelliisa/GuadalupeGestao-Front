@@ -71,6 +71,7 @@ export default function Sidebar({
         {
             titulo: "PRINCIPAL",
             itens: [
+                ...([0, 1].includes(Number(tipoUsuario)) ? [{ id: "lupe", nome: "Lupe", icone: "/Lupe.png", rota: "/lupe" }] : []),
                 // Acesso à página atual de visão geral.
                 {
                     id: "visao-geral",
@@ -354,6 +355,7 @@ export default function Sidebar({
                                                         src={item.icone}
                                                         alt=""
                                                         className={css.menuIconeImagem}
+                                                        style={item.id === "lupe" ? { filter: "none" } : undefined}
                                                     />
                                                 ) : item.icone}
                                             </span>
