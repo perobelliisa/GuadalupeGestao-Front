@@ -1,5 +1,5 @@
 // Importa o ícone do ambiente atual.
-import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
+import { History, LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 // Importa a navegação usada pelos itens que já possuem página.
 import { useNavigate } from "react-router-dom";
@@ -171,6 +171,7 @@ export default function Sidebar({
                     icone: "/usuarios.png",
                     rota: "/usuarios"
                 },
+                { id: "logs", nome: "Logs", icone: "history", rota: "/logs" },
                 // Acesso às configurações gerais.
                 {
                     id: "configuracoes",
@@ -321,7 +322,7 @@ export default function Sidebar({
                                 {/* Converte cada configuração em um botão navegável. */}
                                 {secao.itens
                                     .filter(function (item) {
-                                        return item.id !== "usuarios" || podeGerenciarUsuarios;
+                                        return !["usuarios", "logs"].includes(item.id) || podeGerenciarUsuarios;
                                     })
                                     .map(function (item) {
 
@@ -357,7 +358,7 @@ export default function Sidebar({
                                                         className={css.menuIconeImagem}
                                                         style={item.id === "lupe" ? { filter: "none" } : undefined}
                                                     />
-                                                ) : item.icone}
+                                                ) : item.id === "logs" ? <History size={18} aria-hidden="true" /> : item.icone}
                                             </span>
 
                                             {/* Exibe o nome legível da página. */}
@@ -398,3 +399,4 @@ export default function Sidebar({
 
     );
 }
+
