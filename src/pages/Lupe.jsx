@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { PanelLeft, Plus, RefreshCw, Send, Trash2, X } from "lucide-react";
+import { Mic, MicOff, PanelLeft, Plus, RefreshCw, Send, Trash2, X } from "lucide-react";
 import Sidebar from "../../components/Sidebar.jsx";
 import { carregarConversa, conversar, criarConversa, decidirAcao, excluirConversa, listarAcoes, listarConversas, salvarConversa } from "../services/lupe.js";
 import AcoesLupe from "./AcoesLupe.jsx";
@@ -16,6 +16,7 @@ export default function Lupe({ usuario, onLogout, onAlteracaoSistema }) {
     const [historico, setHistorico] = useState([]);
     const [acoes, setAcoes] = useState([]);
     const [texto, setTexto] = useState("");
+    const [ouvindo, setOuvindo] = useState(false);
     const [pendente, setPendente] = useState("");
     const [enviando, setEnviando] = useState(false);
     const [operando, setOperando] = useState(false);
@@ -30,6 +31,7 @@ export default function Lupe({ usuario, onLogout, onAlteracaoSistema }) {
     const naoSalva = useRef(false);
     const fim = useRef(null);
     const entrada = useRef(null);
+    const reconhecimento = useRef(null);
     const botaoHistorico = useRef(null);
     const fecharHistorico = useRef(null);
     const geracao = useRef(0);
@@ -84,7 +86,11 @@ export default function Lupe({ usuario, onLogout, onAlteracaoSistema }) {
     useEffect(() => {
         montado.current = true;
         atualizar();
-        return () => { montado.current = false; };
+        return () => {
+            montado.current = false;
+            reconhecimento.current?.stop();
+            reconhecimento.current = null;
+        };
     }, [usuario.id]);
 
     useEffect(() => {
@@ -211,6 +217,65 @@ export default function Lupe({ usuario, onLogout, onAlteracaoSistema }) {
         }
     }
 
+    function alternarMicrofone() {
+        if (reconhecimento.current) {
+            reconhecimento.current.stop();
+            return;
+        }
+
+        const ReconhecimentoDeFala = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!ReconhecimentoDeFala) {
+            setErro("O reconhecimento de voz não está disponível neste navegador. Tente usar Chrome ou Edge.");
+            return;
+        }
+
+        const fala = new ReconhecimentoDeFala();
+        fala.lang = "pt-BR";
+        fala.continuous = false;
+        fala.interimResults = false;
+        fala.maxAlternatives = 1;
+        fala.onstart = () => {
+            if (montado.current) { setOuvindo(true); setErro(""); }
+        };
+        fala.onresult = event => {
+            const transcricao = Array.from(event.results)
+                .filter(resultado => resultado.isFinal)
+                .map(resultado => resultado[0]?.transcript || "")
+                .join(" ")
+                .trim();
+            if (!transcricao) {
+                if (montado.current) setErro("Não consegui reconhecer a fala. Tente novamente.");
+                return;
+            }
+            if (montado.current) setTexto(transcricao);
+            // A fala vira texto no navegador e segue pelo mesmo caminho do chat escrito.
+            void enviar(null, transcricao);
+        };
+        fala.onerror = event => {
+            if (!montado.current || event.error === "aborted") return;
+            const mensagens = {
+                "not-allowed": "Permita o acesso ao microfone nas configurações do navegador.",
+                "service-not-allowed": "O serviço de reconhecimento de voz não está disponível.",
+                "no-speech": "Não detectei uma fala. Tente novamente.",
+                "audio-capture": "Não encontrei um microfone disponível.",
+            };
+            setErro(mensagens[event.error] || "Não foi possível reconhecer o áudio. Tente novamente.");
+        };
+        fala.onend = () => {
+            if (reconhecimento.current === fala) reconhecimento.current = null;
+            if (montado.current) setOuvindo(false);
+        };
+
+        reconhecimento.current = fala;
+        try {
+            fala.start();
+        } catch {
+            reconhecimento.current = null;
+            setOuvindo(false);
+            setErro("Não consegui iniciar o microfone. Tente novamente.");
+        }
+    }
+
     async function tentarSalvar() {
         if (ocupado.current) return;
         ocupado.current = true;
@@ -313,8 +378,10 @@ export default function Lupe({ usuario, onLogout, onAlteracaoSistema }) {
                     <textarea ref={entrada} id="lupe-mensagem" aria-label="Mensagem para a Lupe" placeholder="Digite uma mensagem" maxLength={2000} rows={1} value={texto} onChange={event => setTexto(event.target.value)} onKeyDown={event => {
                         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) enviar(event);
                     }} disabled={bloqueado || !pronto} />
+                    <button type="button" className={`lupe-microfone ${ouvindo ? "lupe-microfone-ouvindo" : ""}`} aria-label={ouvindo ? "Parar de ouvir" : "Enviar mensagem por áudio"} title={ouvindo ? "Parar de ouvir" : "Enviar mensagem por áudio"} aria-pressed={ouvindo} disabled={bloqueado || !pronto} onClick={alternarMicrofone}>{ouvindo ? <MicOff size={20} /> : <Mic size={20} />}</button>
                     <button type="submit" className="lupe-enviar" aria-label="Enviar mensagem" title="Enviar mensagem" disabled={bloqueado || !pronto || !texto.trim()}><Send size={20} /></button>
                 </div>
+                {ouvindo && <span className="lupe-voz-status" role="status">Ouvindo… fale sua mensagem.</span>}
             </form>
         </section>
     </main></div>;
