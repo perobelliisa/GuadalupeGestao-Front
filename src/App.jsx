@@ -2,6 +2,7 @@ import { API_URL } from "./config/api.js";
 // Importa as duas páginas disponíveis na aplicação.
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import Logs from "./pages/Logs.jsx";
 import CadastroUsuario from "./pages/CadastroUsuario.jsx";
 import Usuarios from "./pages/Usuarios.jsx";
 import Entradas from "./pages/Entradas.jsx";
@@ -290,6 +291,7 @@ export default function App() {
         <BrowserRouter>
             {/* Agrupa todas as rotas da aplicação. */}
             <Routes>
+                <Route path="/logs" element={usuarioAdministrador ? <Logs usuario={usuario} onLogout={encerrarSessao} /> : usuario ? <Navigate to="/dashboard" replace /> : redirecionarParaLogin} />
                 <Route path="/lupe" element={usuario && [0, 1].includes(Number(usuario.tipo))
                     ? <Lupe key={usuario.id} usuario={usuario} onLogout={encerrarSessao} onAlteracaoSistema={() => setVersaoFinanceiro(versao => versao + 1)} />
                     : usuario ? <Navigate to="/dashboard" replace /> : redirecionarParaLogin} />
@@ -334,7 +336,8 @@ export default function App() {
                     element={
                         usuario
                             ? <DocumentosProjetos
-                                usuario={usuario}                                projetos={projetos}
+                                usuario={usuario}
+                                projetos={projetos}
                                 onLogout={encerrarSessao}
                             />
                             : redirecionarParaLogin
@@ -345,7 +348,8 @@ export default function App() {
                     element={
                         usuario
                             ? <Relatorios
-                                usuario={usuario}                                entradas={entradas}
+                                usuario={usuario}
+                                entradas={entradas}
                                 despesas={despesas}
                                 doacoes={doacoes}
                                 emprestimos={emprestimos}
@@ -368,7 +372,8 @@ export default function App() {
                     element={
                         usuario
                             ? <NovaEntrada
-                                usuario={usuario}                                categorias={categorias}
+                                usuario={usuario}
+                                categorias={categorias}
                                 origens={origens}
                                 onRegistrar={registrarEntrada}
                                 onLogout={encerrarSessao}
@@ -452,7 +457,8 @@ export default function App() {
                     element={
                         usuario
                             ? <Configuracoes
-                                usuario={usuario}                                onUsuarioAtualizado={atualizarUsuarioLogado}
+                                usuario={usuario}
+                                onUsuarioAtualizado={atualizarUsuarioLogado}
                                 onLogout={encerrarSessao}
                             />
                             : redirecionarParaLogin
@@ -464,7 +470,8 @@ export default function App() {
                     element={
                         usuarioAdministrador
                             ? <Usuarios
-                                usuario={usuario}                                onSessaoInvalida={encerrarSessao}
+                                usuario={usuario}
+                                onSessaoInvalida={encerrarSessao}
                                 onLogout={encerrarSessao}
                             />
                             : usuario
@@ -478,7 +485,8 @@ export default function App() {
                     element={
                         usuarioAdministrador
                             ? <CadastroUsuario
-                                usuario={usuario}                                onLogout={encerrarSessao}
+                                usuario={usuario}
+                                onLogout={encerrarSessao}
                             />
                             : usuario
                                 ? <Navigate to="/dashboard" replace />
@@ -491,3 +499,4 @@ export default function App() {
         </BrowserRouter>
   );
 }
+
