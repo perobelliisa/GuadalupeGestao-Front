@@ -5,6 +5,7 @@ import Header from '../../components/Header.jsx';
 import { API_URL } from '../config/api.js';
 import './Dashboard.css';
 import './Logs.css';
+import { detalhesLog } from './detalhesLog.js';
 
 const ACOES = { INSERT: 'Inclusão', UPDATE: 'Alteração', DELETE: 'Exclusão' };
 const INICIAL = { inicio: '', fim: '', usuario: '', tabela: '', acao: '', registro: '' };
@@ -14,6 +15,13 @@ function quando(valor) {
     if (!valor) return 'Data não informada';
     const [data, hora = ''] = valor.split('T');
     return `${data.split('-').reverse().join('/')} às ${hora.slice(0, 8)}`;
+}
+
+function ValoresAlterados({ item }) {
+    const linhas = detalhesLog(item);
+    if (!linhas) return <div className="logs-raw"><p>Este registro antigo tem separadores dentro do texto. Os valores originais foram preservados para evitar associar informações ao campo errado.</p><div className="logs-comparison"><section><h3>Antes</h3><pre>{item.antes || '—'}</pre></section><section><h3>Depois</h3><pre>{item.depois || '—'}</pre></section></div></div>;
+    const alterados = linhas.filter(linha => linha.mudou).length;
+    return <><p className="logs-changes-count">{item.acao === 'UPDATE' ? `${alterados} campo(s) alterado(s)` : `${linhas.length} campos registrados`}</p><div className="logs-values-scroll"><table className="logs-values"><caption className="logs-sr-only">Comparação dos valores do evento {item.id}</caption><thead><tr><th scope="col">Campo</th><th scope="col">Antes</th><th scope="col">Depois</th></tr></thead><tbody>{linhas.map(linha => <tr key={linha.campo} className={linha.mudou ? 'logs-value-changed' : ''}><th scope="row">{linha.nome}{item.acao === 'UPDATE' && linha.mudou && <span className="logs-change-dot" aria-label="Alterado" />}</th><td>{linha.antes}</td><td>{linha.depois}</td></tr>)}</tbody></table></div></>;
 }
 
 export default function Logs({ usuario, onLogout }) {
@@ -79,10 +87,10 @@ export default function Logs({ usuario, onLogout }) {
                 {carregando ? <div className="logs-empty" role="status">Carregando alterações…</div> : !erro && <>
                     {dados?.logs.length === 0 ? <div className="logs-empty"><History size={32} aria-hidden="true" /><h2>Nenhuma alteração encontrada</h2><p>Experimente outro período ou limpe os filtros.</p></div> : <div className="logs-list">{dados?.logs.map(item => <article className="logs-item" key={item.id}>
                         <div className="logs-item-top"><div className="logs-actor"><div className="logs-avatar" aria-hidden="true">{item.nome_usuario[0]}</div><div><strong>{item.nome_usuario}</strong><span>{item.email && item.email !== 'NAO IDENTIFICADO' ? item.email : item.identificacao_legada ? 'Nome definido para o histórico antigo' : 'Sem sessão de usuário'}</span></div></div><time dateTime={item.data_hora}>{quando(item.data_hora)}</time></div>
-                        <div className="logs-item-bottom"><div className="logs-item-meta"><span className={`logs-badge logs-${item.acao.toLowerCase()}`}>{ACOES[item.acao] || item.acao}</span><strong>{item.tabela.replaceAll('_', ' ')}</strong>{item.registro_id && <span>Registro #{item.registro_id}</span>}<span className="logs-event-id">Evento #{item.id}</span></div><button className="logs-detail-button" aria-expanded={aberto === item.id} aria-controls={`log-${item.id}`} onClick={() => setAberto(aberto === item.id ? null : item.id)}>{aberto === item.id ? 'Fechar detalhes' : 'Ver alteração'}</button></div>
+                        <div className="logs-item-bottom"><div className="logs-item-meta"><span className={`logs-badge logs-${item.acao.toLowerCase()}`}>{ACOES[item.acao] || item.acao}</span><strong>{item.tabela.replaceAll('_', ' ')}</strong>{item.registro_id && <span>Registro #{item.registro_id}</span>}<span className="logs-event-id">Evento #{item.id}</span><span className="logs-device-summary">Dispositivo: {item.dispositivo && !["NAO INFORMADO", "Sistema Guadalupe"].includes(item.dispositivo) ? item.dispositivo : "Não registrado no histórico antigo"}</span></div><button className="logs-detail-button" aria-expanded={aberto === item.id} aria-controls={`log-${item.id}`} onClick={() => setAberto(aberto === item.id ? null : item.id)}>{aberto === item.id ? 'Fechar detalhes' : 'Ver alteração'}</button></div>
                         {aberto === item.id && <div className="logs-details" id={`log-${item.id}`}>
                             <div className="logs-fields"><strong>Campos registrados</strong><p>{item.campos}</p></div>
-                            <div className="logs-comparison"><section><h3>Antes</h3><pre>{item.acao === 'INSERT' ? 'O registro ainda não existia.' : item.antes || 'Sem valor registrado.'}</pre></section><section><h3>Depois</h3><pre>{item.acao === 'DELETE' ? 'O registro foi excluído.' : item.depois || 'Sem valor registrado.'}</pre></section></div>
+                            <ValoresAlterados item={item} />
                             <p className="logs-device">Origem: {item.dispositivo || 'Não informada'}{item.id_usuario != null && ` · Usuário #${item.id_usuario}`}</p>
                             {item.identificacao_legada && <p className="logs-legacy">Rodrigo foi definido como nome de exibição para este registro antigo, que não tinha autoria salva.</p>}
                         </div>}
